@@ -1,0 +1,1973 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vyntaris — interactive desktop preview</title>
+<!-- Unofficial fan-made preview of Vyntaris OS (https://vyntarisos.com). Not affiliated with the project.
+     Theme tokens, logo, bar geometry and spring easing are taken from the official site's published CSS.
+     Fonts (Inter, JetBrains Mono) load from Google Fonts when online; the wallpaper loads from vyntarisos.com
+     when online and falls back to an accent gradient offline. Everything else runs fully offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --crust:#11111b; --mantle:#181825; --base:#1e1e2e; --surface:#313244; --surface-2:#45475a;
+  --text:#cdd6f4; --subtext:#bac2de; --muted:#a6adc8; --quiet:#9399b2;
+  --accent:#cba6f7; --ink:var(--accent); --on-accent:#11111b;
+  --glass:var(--crust); --tile:rgba(205,214,244,.05); --tile-hover:rgba(205,214,244,.09);
+  --rim:rgba(205,214,244,.14); --line:rgba(205,214,244,.08);
+  --track:#6c7086; --red:#f38ba8; --green:#a6e3a1; --warm:#fab387; --term-prompt:#89b4fa;
+  --bar:36px; --control:36px; --gap:8px; --r-tile:16px; --r-window:12px; --r-control:18px;
+  --font:"Inter","Segoe UI Variable","Segoe UI","Noto Sans",system-ui,sans-serif;
+  --mono:"JetBrains Mono","Cascadia Code","Consolas","DejaVu Sans Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+body.light{
+  --crust:#dce0e8; --mantle:#e6e9ef; --base:#eff1f5; --surface:#ccd0da; --surface-2:#bcc0cc;
+  --text:#4c4f69; --subtext:#5c5f77; --muted:#6c6f85; --quiet:#7c7f93;
+  --on-accent:#eff1f5; --tile:rgba(76,79,105,.06); --tile-hover:rgba(76,79,105,.11);
+  --rim:rgba(76,79,105,.2); --line:rgba(76,79,105,.12);
+  --track:#9ca0b0; --red:#d20f39; --green:#40a02b; --warm:#fe640b; --term-prompt:#1e66f5;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--crust);color:var(--text);font:400 14px/1.5 var(--font);overflow:hidden;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{background:none;border:0;padding:0;cursor:pointer}
+a{color:var(--ink)}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--text);outline-offset:2px;border-radius:6px}
+.ic{width:16px;height:16px;flex:none}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--surface);border-radius:4px}
+*{scrollbar-width:thin;scrollbar-color:var(--surface) transparent}
+#wall{position:fixed;inset:0;z-index:0}
+.wall-fallback{position:absolute;inset:0;background:var(--crust);
+  background:radial-gradient(ellipse 70% 80% at 72% 42%, color-mix(in oklab, var(--accent) 24%, var(--crust)), var(--crust) 74%)}
+#wallImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:filter .45s}
+#dimmer{position:fixed;inset:0;z-index:90;pointer-events:none;background:#000;opacity:0;transition:opacity .2s}
+#night{position:fixed;inset:0;z-index:91;pointer-events:none;background:#ff8a3d;mix-blend-mode:multiply;opacity:0;transition:opacity .5s}
+.screen{position:fixed;inset:0;z-index:100;display:grid;place-items:center}
+#boot{background:var(--crust)}
+.boot-in{display:grid;justify-items:center;gap:18px}
+.boot-in .logo{width:72px;height:72px;color:var(--ink);animation:pulse 1.6s ease-in-out infinite}
+.boot-in b{font:600 15px var(--font);letter-spacing:.42em;color:var(--text)}
+.boot-bar{width:170px;height:3px;border-radius:2px;background:var(--surface);overflow:hidden}
+.boot-bar i{display:block;height:100%;width:40%;border-radius:2px;background:var(--accent);animation:load 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@keyframes load{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
+#lock{background:rgba(17,17,27,.42);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+body.light #lock{background:rgba(239,241,245,.45)}
+.lock-in{display:grid;justify-items:center;gap:10px;color:#fff}
+body.light .lock-in{color:var(--text)}
+#lockClock{font:300 76px/1 var(--mono);letter-spacing:-.03em}
+#lockDate{font-size:15px;opacity:.85;margin-bottom:26px}
+.avatar{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;background:var(--tile);border:1px solid var(--rim)}
+.avatar .logo{width:38px;height:38px;color:var(--ink)}
+.lock-name{font-weight:600;font-size:15px;margin-top:8px}
+#pw{width:250px;height:38px;padding:0 16px;border-radius:19px;border:1px solid var(--rim);background:rgba(17,17,27,.45);color:#fff;text-align:center;outline:0}
+body.light #pw{background:rgba(239,241,245,.6);color:var(--text)}
+#pw:focus{border-color:var(--ink)}
+#pw.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.lock-hint{font-size:12px;opacity:.7}
+.lock-foot{position:absolute;inset:auto 18px 14px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:rgba(255,255,255,.65)}
+body.light .lock-foot{color:var(--muted)}
+.lock-foot .mod{color:inherit}
+#off{background:#000;z-index:120}
+#off button{display:grid;justify-items:center;gap:12px;color:#585b70;font-size:13px}
+#off button:hover{color:#cdd6f4}
+#off .ic{width:34px;height:34px}
+#sleep{position:fixed;inset:0;z-index:130;background:#000;opacity:0;pointer-events:none;transition:opacity .6s}
+#sleep.on{opacity:1;pointer-events:auto}
+.bar{position:fixed;inset:0 0 auto 0;z-index:40;height:var(--bar);display:grid;grid-template:var(--bar)/1fr auto 1fr;align-items:center;padding-inline:12px;font-size:12px}
+.bar>*{position:relative;z-index:1}
+.edge{position:absolute;left:0;top:0;width:100%;height:50px;pointer-events:none;z-index:0;overflow:visible}
+.edge .fill{fill:var(--glass)}
+.edge .line{fill:none;stroke:var(--accent);stroke-width:1}
+.bar-left,.bar-right{display:flex;align-items:center;gap:8px;min-width:0}
+.bar-right{justify-content:flex-end}
+.brand{display:inline-flex;align-items:center;gap:8px;color:var(--ink);font-weight:600}
+.brand .logo{width:18px;height:18px}
+.brand span{color:var(--text)}
+.ws{display:flex;gap:2px;margin-left:4px}
+.ws button{position:relative;display:grid;place-items:center;min-width:24px;height:24px;padding-inline:6px;border-radius:12px;color:var(--muted);font:500 12px var(--mono)}
+.ws button:hover{background:var(--tile-hover);color:var(--text)}
+.ws button[aria-current]{background:var(--accent);color:var(--on-accent);font-weight:600}
+.ws button i{position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--ink)}
+.ws button[aria-current] i{background:var(--on-accent)}
+.title{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:4px}
+.island{display:flex;align-items:center;gap:10px;height:44px;align-self:start;padding-inline:26px;font-weight:600;font-size:13px;white-space:nowrap;border-radius:0 0 14px 14px}
+.island:hover{background:var(--tile)}
+.island time{font-family:var(--mono)}
+.chips{display:flex;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding-inline:9px;border-radius:12px;background:var(--tile);border:1px solid var(--line);font:500 11px var(--mono);color:var(--subtext)}
+.chip .ic{width:12px;height:12px;color:var(--ink)}
+.mod{display:inline-flex;align-items:center;gap:6px;height:26px;padding-inline:9px;border-radius:13px;color:var(--text);font-weight:500}
+.mod:hover{background:var(--tile-hover)}
+.mod .ic{color:var(--ink)}
+.mod.low .ic,.mod.low{color:var(--red)}
+#micDot .ic{color:var(--warm);animation:pulse 1.4s infinite}
+#bellWrap{position:relative}
+#bellDot{position:absolute;top:3px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+#panel{position:fixed;top:52px;left:50%;transform:translateX(-50%);z-index:60;width:min(430px,calc(100vw - 16px))}
+#panel .card{transform-origin:50% 0;transform:translateY(-4%) scale(.5,.08);opacity:0;
+  transition:transform .14s cubic-bezier(.4,0,1,1),opacity .1s linear .04s;
+  background:var(--base);border:1px solid var(--rim);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);
+  max-height:calc(100vh - 70px);display:flex;flex-direction:column;overflow:hidden}
+#panel.on .card{transform:none;opacity:1;
+  transition:transform .5s cubic-bezier(.2,.9,.25,1.12),opacity .1s;
+  transition:transform .68s linear(0,.143,.425,.679,.866,.97,1.012,1.029,1.027,1.019,1.011,1.005,1),opacity .1s}
+.search{display:flex;align-items:center;gap:10px;margin:10px 10px 6px;height:var(--control);padding:0 6px 0 5px;border:1px solid var(--rim);border-radius:18px;background:var(--tile);flex:none}
+.search:focus-within{border-color:var(--ink)}
+.search i{display:grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--on-accent)}
+.search input{font-size:13px;background:none;border:0;outline:0;min-width:0;flex:1}
+.tabs{display:flex;gap:4px;padding:0 10px 8px;flex:none;flex-wrap:wrap}
+.tabs button{height:26px;padding-inline:10px;border-radius:13px;font-size:11px;font-weight:600;color:var(--muted)}
+.tabs button:hover{background:var(--tile-hover);color:var(--text)}
+.tabs button[aria-selected]{background:var(--accent);color:var(--on-accent)}
+.tabbody{overflow-y:auto;padding:4px 12px 14px;display:grid;gap:12px}
+.sect{font-size:11px;font-weight:600;color:var(--ink);letter-spacing:.02em}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{display:flex;align-items:center;gap:10px;min-height:54px;padding:8px 12px;border-radius:16px;background:var(--tile);border:1px solid var(--line);text-align:left;transition:background .14s}
+.tile:hover{background:var(--tile-hover)}
+.tile .ic{width:19px;height:19px;color:var(--ink)}
+.tile b{display:block;font-size:13px;font-weight:600}
+.tile small{display:block;font-size:11px;color:var(--muted);line-height:1.3}
+.tile.on{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.tile.on .ic,.tile.on small{color:inherit}
+.tile.on small{opacity:.8}
+.srow{display:grid;gap:6px}
+.srow .lab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-weight:600}
+.srow .lab output{font-family:var(--mono);color:var(--text)}
+input[type=range]{width:100%;accent-color:var(--accent);height:22px}
+input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+.cardline{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:var(--tile);border:1px solid var(--line)}
+.cardline .grow{flex:1;min-width:0}
+.cardline b{font-size:13px}
+.cardline small{display:block;font-size:11px;color:var(--muted)}
+.media{display:grid;gap:8px;padding:12px;border-radius:16px;background:var(--tile);border:1px solid var(--line)}
+.media .top{display:flex;align-items:center;gap:10px}
+.media .top .ic{width:20px;height:20px;color:var(--ink)}
+.media b{font-size:13px;display:block}
+.media small{font-size:11px;color:var(--muted)}
+.mprog{height:4px;border-radius:2px;background:var(--surface);overflow:hidden}
+.mprog i{display:block;height:100%;background:var(--accent);width:0}
+.mctl{display:flex;align-items:center;justify-content:center;gap:14px}
+.mctl button{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;color:var(--text)}
+.mctl button:hover{background:var(--tile-hover)}
+.mctl .big{width:36px;height:36px;background:var(--accent);color:var(--on-accent)}
+.mtime{display:flex;justify-content:space-between;font:400 10px var(--mono);color:var(--quiet)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--control);padding-inline:16px;border-radius:var(--r-control);background:var(--tile);border:1px solid var(--rim);color:var(--text);font-weight:600;font-size:13px;white-space:nowrap;transition:background .14s,transform .14s}
+.btn:hover{background:var(--tile-hover)}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--on-accent)}
+.btn.sm{height:26px;padding-inline:11px;font-size:11px;border-radius:13px}
+.calhead{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600}
+.calhead button{width:26px;height:26px;border-radius:13px;display:grid;place-items:center;color:var(--muted)}
+.calhead button:hover{background:var(--tile-hover);color:var(--text)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font:400 11px var(--mono)}
+.cal .dow{color:var(--quiet);font-size:10px;padding:4px 0}
+.cal span{display:grid;place-items:center;height:26px;border-radius:8px;color:var(--subtext)}
+.cal span.today{background:var(--accent);color:var(--on-accent);font-weight:600}
+.notif{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:12px;background:var(--tile)}
+.notif .ic{color:var(--ink);margin-top:2px}
+.notif b{font-size:12px;display:block}
+.notif small{font-size:11px;color:var(--muted);display:block}
+.notif time{margin-left:auto;font:400 10px var(--mono);color:var(--quiet);flex:none}
+.empty{font-size:12px;color:var(--quiet);padding:6px 2px}
+.prow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.prow button{display:grid;justify-items:center;gap:6px;padding:12px 4px;border-radius:14px;background:var(--tile);border:1px solid var(--line);font-size:11px;font-weight:600;color:var(--subtext)}
+.prow button:hover{background:var(--tile-hover);color:var(--text)}
+.prow .ic{width:18px;height:18px;color:var(--ink)}
+.swatches{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.swatch{position:relative;height:58px;border-radius:14px;border:1px solid var(--line);display:flex;align-items:flex-end;padding:7px 9px;font-size:11px;font-weight:600;color:#11111b}
+.swatch.sel,.swatch:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.results{display:grid;gap:2px;padding:4px 10px 12px;overflow-y:auto}
+.res{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;text-align:left;width:100%}
+.res .ic{width:18px;height:18px;color:var(--ink)}
+.res b{font-size:13px;font-weight:600;display:block}
+.res small{font-size:11px;color:var(--muted);display:block}
+.res.sel{background:var(--accent);color:var(--on-accent)}
+.res.sel .ic,.res.sel small{color:inherit}
+.res.sel small{opacity:.8}
+#wins{position:absolute;inset:44px 8px 8px;display:flex;gap:8px;z-index:10}
+.win{flex:1 1 0;min-width:0;display:flex;flex-direction:column;border-radius:var(--r-window);border:2px solid var(--line);background:var(--mantle);overflow:hidden;transition:border-color .14s}
+.win.focus{border-color:var(--accent)}
+.win.float{position:absolute;flex:none;box-shadow:0 16px 44px rgba(0,0,0,.4);z-index:5}
+.win-body{flex:1;min-height:0;overflow:auto}
+.cap{display:flex;align-items:center;gap:8px;padding:7px 12px 8px;font-size:12px;color:var(--muted);cursor:default;user-select:none}
+.win.float .cap{cursor:grab}
+.cap b{color:var(--text);font-size:13px;font-weight:600}
+.cap .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap button{display:grid;place-items:center;width:24px;height:24px;border-radius:12px;color:var(--muted)}
+.cap button:hover{background:var(--tile-hover);color:var(--text)}
+.term{font:400 13px/1.65 var(--mono);padding:14px 16px;background:var(--crust);color:var(--text);min-height:100%}
+.term .p{color:var(--term-prompt)}
+.term .k{color:var(--ink);font-weight:600}
+.term .dim{color:var(--quiet)}
+.term input{background:none;border:0;outline:0;color:var(--text);font:inherit;width:62%}
+.fetch{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;margin:6px 0}
+.fetch .logo{width:84px;height:84px;color:var(--ink)}
+.fetch dl{display:grid;grid-template-columns:auto 1fr;gap:0 12px;margin:0}
+.fetch dt{color:var(--ink);font-weight:600}
+.fetch dd{margin:0}
+.stub{display:grid;place-items:center;align-content:center;gap:10px;height:100%;text-align:center;padding:24px;color:var(--muted)}
+.stub .ic{width:38px;height:38px;color:var(--ink)}
+.stub b{color:var(--text);font-size:15px}
+.stub p{margin:0;font-size:12px;max-width:34ch}
+.setsec{display:grid;gap:8px;padding:14px 16px}
+.setsec h4{margin:0;font-size:11px;font-weight:600;color:var(--ink);letter-spacing:.03em}
+.srow2{display:flex;align-items:center;gap:10px;font-size:13px}
+.srow2 .grow{flex:1}
+.srow2 small{display:block;font-size:11px;color:var(--muted)}
+.store-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.store-row .ic{width:20px;height:20px;color:var(--ink)}
+.store-row b{font-size:13px;display:block}
+.store-row small{font-size:11px;color:var(--muted)}
+.store-row .grow{flex:1;min-width:0}
+.note{font-size:11px;color:var(--quiet);padding:10px 16px}
+.doc-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);font-size:13px}
+.doc-row .ic{color:var(--green)}
+.doc-row.bad .ic{color:var(--warm)}
+.doc-row .grow{flex:1}
+.doc-row small{display:block;font-size:11px;color:var(--muted)}
+.overlay{position:fixed;inset:0;z-index:70;display:grid;place-items:center;background:rgba(17,17,27,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+body.light .overlay{background:rgba(76,79,105,.25)}
+.overlay .ocard{background:var(--base);border:1px solid var(--rim);border-radius:16px;padding:18px;width:min(560px,calc(100vw - 24px));max-height:82vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+.ocard h3{margin:0 0 12px;font-size:15px}
+.appsgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.appsgrid button{display:grid;justify-items:center;gap:8px;padding:16px 6px;border-radius:12px;background:var(--tile);font-size:12px;font-weight:600;color:var(--subtext)}
+.appsgrid button:hover{background:var(--tile-hover);color:var(--text)}
+.appsgrid .ic{width:26px;height:26px;color:var(--ink)}
+.keys{display:grid;gap:6px}
+.keys .krow{display:grid;grid-template-columns:190px 1fr;gap:12px;align-items:center;font-size:13px;color:var(--subtext)}
+kbd{font:600 11px var(--mono);background:var(--tile);border:1px solid var(--rim);border-radius:6px;padding:2px 7px;color:var(--text);white-space:nowrap}
+.fine{font-size:11px;color:var(--quiet);margin-top:12px;line-height:1.5}
+#micPop{position:fixed;top:44px;right:12px;z-index:65;width:270px;background:var(--base);border:1px solid var(--rim);border-radius:12px;padding:12px;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+#micPop b{font-size:13px;display:flex;gap:8px;align-items:center}
+#micPop b .ic{color:var(--warm)}
+#micPop p{margin:6px 0 10px;font-size:12px;color:var(--muted)}
+#toasts{position:fixed;top:44px;right:12px;z-index:80;display:grid;gap:8px;width:min(310px,calc(100vw - 24px))}
+.toast{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--mantle);border:1px solid var(--rim);box-shadow:0 10px 30px rgba(0,0,0,.35);animation:tin .25s cubic-bezier(.2,.9,.3,1.2)}
+.toast .ic{color:var(--ink);margin-top:1px}
+.toast b{font-size:12px;display:block}
+.toast small{font-size:11px;color:var(--muted);display:block}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}}
+#hint{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;background:color-mix(in srgb, var(--mantle) 86%, transparent);border:1px solid var(--rim);backdrop-filter:blur(8px);font-size:12px;color:var(--muted);max-width:calc(100vw - 24px)}
+#hint button{color:var(--quiet);display:grid;place-items:center;width:20px;height:20px;border-radius:10px}
+#hint button:hover{background:var(--tile-hover);color:var(--text)}
+@media (max-width:860px){
+  .brand span,.ws,.title{display:none}
+  .island{padding-inline:12px;font-size:12px}
+  .bar{padding-inline:8px}
+  .mod{padding-inline:6px}
+  .keys .krow{grid-template-columns:150px 1fr}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<noscript><p style="padding:20px;font-family:sans-serif">This preview needs JavaScript.</p></noscript>
+<div id="wall">
+  <div class="wall-fallback"></div>
+  <img id="wallImg" src="https://vyntarisos.com/shots/xp-wall.webp" alt="" onerror="this.hidden=true">
+</div>
+<div id="dimmer"></div>
+<div id="night"></div>
+<section id="boot" class="screen" aria-label="Starting Vyntaris">
+  <div class="boot-in">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12.79 11.4L13.97 10.96L14.92 10.55L15.79 10.12L16.57 9.68L16.88 9.05L16.82 8.75L16.79 8.45L16.78 8.15L16.81 7.85L16.85 7.55L16.92 7.26L17.02 6.97L17.14 6.7L17.28 6.44L17.45 6.19L17.66 5.93L17.86 5.71L18.09 5.51L18.33 5.34L18.59 5.18L18.86 5.04L20.16 2.43L16.16 2.43zM6.69 12.72L8.05 12.57L9.18 12.38L10.35 12.12L11.45 11.83L7.26 2.43L1.08 2.43zM22.55 8.18L22.5 7.74L22.36 7.32L22.14 6.93L21.85 6.6L21.5 6.32L21.1 6.12L20.67 6L20.22 5.97L19.78 6.02L19.36 6.16L18.97 6.38L18.64 6.67L18.36 7.03L18.16 7.42L18.04 7.85L18.01 8.3L18.06 8.74L18.2 9.16L18.42 9.55L18.71 9.88L19.07 10.16L19.46 10.36L19.89 10.48L20.34 10.51L20.78 10.46L21.2 10.32L21.59 10.1L21.92 9.81L22.2 9.45L22.4 9.06L22.52 8.63zM3.06 13.46L3.08 13.5L0.65 14.24L0.75 14.52L0.89 14.78L1.1 15.07L1.3 15.28L1.56 15.51L1.85 15.7L2.15 15.86L2.52 16.01L2.92 16.14L3.34 16.24L3.77 16.32L4.23 16.37L4.78 16.41L5.88 16.41L7.15 16.31L7.92 16.21L8.7 16.08L9.49 15.92L10.4 15.7L11.22 15.49L12.13 15.21L12.93 14.95L13.82 14.62L14.69 14.27L15.44 13.94L16.25 13.55L16.93 13.19L17.66 12.77L18.25 12.39L18.81 12L19.32 11.6L18.83 11.42L18.37 11.17L17.96 10.85L17.59 10.48L16.86 10.93L15.99 11.39L15.03 11.84L13.99 12.27L12.9 12.66L11.87 12.98L10.83 13.27L9.7 13.53L8.59 13.73L7.52 13.88L6.52 13.96L5.6 13.98L4.79 13.94L4.06 13.84L3.48 13.69L3.23 13.58zM13.4 16.08L11.97 16.54L11.02 16.81L10.07 17.05L9.15 17.24L11.07 20.77z"/></svg>
+    <b>VYNTARIS</b>
+    <div class="boot-bar"><i></i></div>
+  </div>
+</section>
+<section id="lock" class="screen" hidden aria-label="Login">
+  <div class="lock-in">
+    <div id="lockClock">00:00</div>
+    <div id="lockDate"></div>
+    <div class="avatar"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12.79 11.4L13.97 10.96L14.92 10.55L15.79 10.12L16.57 9.68L16.88 9.05L16.82 8.75L16.79 8.45L16.78 8.15L16.81 7.85L16.85 7.55L16.92 7.26L17.02 6.97L17.14 6.7L17.28 6.44L17.45 6.19L17.66 5.93L17.86 5.71L18.09 5.51L18.33 5.34L18.59 5.18L18.86 5.04L20.16 2.43L16.16 2.43zM6.69 12.72L8.05 12.57L9.18 12.38L10.35 12.12L11.45 11.83L7.26 2.43L1.08 2.43zM22.55 8.18L22.5 7.74L22.36 7.32L22.14 6.93L21.85 6.6L21.5 6.32L21.1 6.12L20.67 6L20.22 5.97L19.78 6.02L19.36 6.16L18.97 6.38L18.64 6.67L18.36 7.03L18.16 7.42L18.04 7.85L18.01 8.3L18.06 8.74L18.2 9.16L18.42 9.55L18.71 9.88L19.07 10.16L19.46 10.36L19.89 10.48L20.34 10.51L20.78 10.46L21.2 10.32L21.59 10.1L21.92 9.81L22.2 9.45L22.4 9.06L22.52 8.63zM3.06 13.46L3.08 13.5L0.65 14.24L0.75 14.52L0.89 14.78L1.1 15.07L1.3 15.28L1.56 15.51L1.85 15.7L2.15 15.86L2.52 16.01L2.92 16.14L3.34 16.24L3.77 16.32L4.23 16.37L4.78 16.41L5.88 16.41L7.15 16.31L7.92 16.21L8.7 16.08L9.49 15.92L10.4 15.7L11.22 15.49L12.13 15.21L12.93 14.95L13.82 14.62L14.69 14.27L15.44 13.94L16.25 13.55L16.93 13.19L17.66 12.77L18.25 12.39L18.81 12L19.32 11.6L18.83 11.42L18.37 11.17L17.96 10.85L17.59 10.48L16.86 10.93L15.99 11.39L15.03 11.84L13.99 12.27L12.9 12.66L11.87 12.98L10.83 13.27L9.7 13.53L8.59 13.73L7.52 13.88L6.52 13.96L5.6 13.98L4.79 13.94L4.06 13.84L3.48 13.69L3.23 13.58zM13.4 16.08L11.97 16.54L11.02 16.81L10.07 17.05L9.15 17.24L11.07 20.77z"/></svg></div>
+    <div class="lock-name">shadow</div>
+    <input id="pw" type="password" placeholder="Password" autocomplete="off" aria-label="Password">
+    <div class="lock-hint">Preview: any password works. Press Enter.</div>
+  </div>
+  <div class="lock-foot">
+    <span>Vyntaris &middot; unofficial preview</span>
+    <span style="display:flex;gap:4px">
+      <button class="mod" data-act="power-restart" title="Restart" id="lockRestart"></button>
+      <button class="mod" data-act="power-off" title="Shut down" id="lockOff"></button>
+    </span>
+  </div>
+</section>
+<section id="off" class="screen" hidden aria-label="Powered off">
+  <button data-act="power-on"><span id="offIco"></span>Power on</button>
+</section>
+<div id="sleep"></div>
+<div id="desktop" hidden>
+  <header class="bar" id="bar">
+    <svg class="edge" id="edge" preserveAspectRatio="none" aria-hidden="true">
+      <path class="fill" id="edgeFill" d=""></path>
+      <path class="line" id="edgeLine" d=""></path>
+    </svg>
+    <div class="bar-left">
+      <span class="brand" title="Unofficial interactive preview of Vyntaris OS">
+        <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M12.79 11.4L13.97 10.96L14.92 10.55L15.79 10.12L16.57 9.68L16.88 9.05L16.82 8.75L16.79 8.45L16.78 8.15L16.81 7.85L16.85 7.55L16.92 7.26L17.02 6.97L17.14 6.7L17.28 6.44L17.45 6.19L17.66 5.93L17.86 5.71L18.09 5.51L18.33 5.34L18.59 5.18L18.86 5.04L20.16 2.43L16.16 2.43zM6.69 12.72L8.05 12.57L9.18 12.38L10.35 12.12L11.45 11.83L7.26 2.43L1.08 2.43zM22.55 8.18L22.5 7.74L22.36 7.32L22.14 6.93L21.85 6.6L21.5 6.32L21.1 6.12L20.67 6L20.22 5.97L19.78 6.02L19.36 6.16L18.97 6.38L18.64 6.67L18.36 7.03L18.16 7.42L18.04 7.85L18.01 8.3L18.06 8.74L18.2 9.16L18.42 9.55L18.71 9.88L19.07 10.16L19.46 10.36L19.89 10.48L20.34 10.51L20.78 10.46L21.2 10.32L21.59 10.1L21.92 9.81L22.2 9.45L22.4 9.06L22.52 8.63zM3.06 13.46L3.08 13.5L0.65 14.24L0.75 14.52L0.89 14.78L1.1 15.07L1.3 15.28L1.56 15.51L1.85 15.7L2.15 15.86L2.52 16.01L2.92 16.14L3.34 16.24L3.77 16.32L4.23 16.37L4.78 16.41L5.88 16.41L7.15 16.31L7.92 16.21L8.7 16.08L9.49 15.92L10.4 15.7L11.22 15.49L12.13 15.21L12.93 14.95L13.82 14.62L14.69 14.27L15.44 13.94L16.25 13.55L16.93 13.19L17.66 12.77L18.25 12.39L18.81 12L19.32 11.6L18.83 11.42L18.37 11.17L17.96 10.85L17.59 10.48L16.86 10.93L15.99 11.39L15.03 11.84L13.99 12.27L12.9 12.66L11.87 12.98L10.83 13.27L9.7 13.53L8.59 13.73L7.52 13.88L6.52 13.96L5.6 13.98L4.79 13.94L4.06 13.84L3.48 13.69L3.23 13.58zM13.4 16.08L11.97 16.54L11.02 16.81L10.07 17.05L9.15 17.24L11.07 20.77z"/></svg>
+        <span>Vyntaris</span>
+      </span>
+      <nav class="ws" id="wsNav" aria-label="Workspaces"></nav>
+      <span class="title" id="winTitle"></span>
+    </div>
+    <button class="island" id="island" data-act="island" title="Tap SUPER — everything opens from here">
+      <span class="chips" id="chips"></span>
+      <time id="clock">00:00</time>
+    </button>
+    <div class="bar-right">
+      <button class="mod" id="micDot" data-act="mic-pop" hidden title="An app is using your microphone"></button>
+      <button class="mod" id="trayWifi" data-act="tray" title="Wi-Fi"></button>
+      <button class="mod" id="trayVol" data-act="tray" title="Sound"></button>
+      <button class="mod" id="trayBat" data-act="tray" title="Battery"></button>
+      <span id="bellWrap"><button class="mod" id="trayBell" data-act="tray" title="Notifications"></button><i id="bellDot" hidden></i></span>
+      <button class="mod" id="fsBtn" data-act="fs" title="Fullscreen — lets the real SUPER key reach the preview"></button>
+    </div>
+  </header>
+  <div id="panel" hidden>
+    <div class="card">
+      <div class="search">
+        <i id="searchIco"></i>
+        <input id="q" type="text" placeholder="Search apps, settings, or type a command…" autocomplete="off" spellcheck="false" aria-label="Search">
+      </div>
+      <div class="tabs" id="tabs">
+        <button data-act="tab" data-arg="control" aria-selected="true">Control center</button>
+        <button data-act="tab" data-arg="launcher">Launcher</button>
+        <button data-act="tab" data-arg="wall">Wallpapers</button>
+        <button data-act="tab" data-arg="game">Game mode</button>
+        <button data-act="tab" data-arg="night">Night light</button>
+      </div>
+      <div class="tabbody" id="tabbody"></div>
+      <div class="results" id="results" hidden></div>
+    </div>
+  </div>
+  <main id="wins" aria-label="Windows"></main>
+  <div class="overlay" id="apps" hidden>
+    <div class="ocard">
+      <h3>All apps</h3>
+      <div class="appsgrid" id="appsGrid"></div>
+      <p class="fine">SUPER+A opens this grid. Apps marked as stubs are not part of the preview.</p>
+    </div>
+  </div>
+  <div class="overlay" id="keys" hidden>
+    <div class="ocard">
+      <h3>Every shortcut</h3>
+      <div class="keys">
+        <div class="krow"><span><kbd>SUPER</kbd></span><span>Control center — start typing to search</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>A</kbd></span><span>Every app</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>ENTER</kbd></span><span>Terminal</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>E</kbd></span><span>Files</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>B</kbd></span><span>Browser</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>Q</kbd></span><span>Close the focused window</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>I</kbd></span><span>Settings</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>F1</kbd></span><span>This list</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>ESC</kbd></span><span>Power menu</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>SHIFT</kbd>+<kbd>SPACE</kbd></span><span>Float / tile the focused window</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>SHIFT</kbd>+<kbd>H</kbd></span><span>Offline Arch Wiki (not in this preview)</span></div>
+        <div class="krow"><span><kbd>SUPER</kbd>+<kbd>1…4</kbd></span><span>Workspaces</span></div>
+        <div class="krow"><span><kbd>ESC</kbd></span><span>Close the panel or overlay</span></div>
+      </div>
+      <p class="fine">In fullscreen, Chrome and Edge hand the real SUPER (Windows) key to the page.
+      Outside fullscreen, hold <kbd>CTRL</kbd>+<kbd>ALT</kbd> as SUPER — e.g. <kbd>CTRL</kbd>+<kbd>ALT</kbd>+<kbd>SPACE</kbd> opens the island,
+      <kbd>CTRL</kbd>+<kbd>ALT</kbd>+<kbd>F1</kbd> shows this list. Try typing <b>volume 40</b>, <b>dark mode</b>, <b>timer 5m</b> or <b>100 eur to rsd</b> in the search.</p>
+    </div>
+  </div>
+  <div class="overlay" id="power" hidden>
+    <div class="ocard" style="width:min(420px,calc(100vw - 24px))">
+      <h3>Power</h3>
+      <div class="prow">
+        <button data-act="power-lock"><span data-ico="lock"></span>Lock</button>
+        <button data-act="power-sleep"><span data-ico="moon"></span>Sleep</button>
+        <button data-act="power-restart"><span data-ico="restart"></span>Restart</button>
+        <button data-act="power-off"><span data-ico="power"></span>Shut down</button>
+      </div>
+    </div>
+  </div>
+  <div id="micPop" hidden></div>
+  <div id="toasts"></div>
+  <div id="hint">
+    <span>Tap <kbd>SUPER</kbd> (or <kbd>CTRL</kbd>+<kbd>ALT</kbd>+<kbd>SPACE</kbd>) &middot; <kbd>SUPER</kbd>+<kbd>F1</kbd> = all keys &middot; unofficial preview</span>
+    <button data-act="hint-close" title="Dismiss" id="hintX"></button>
+  </div>
+</div>
+<script>
+'use strict';
+/* Unofficial interactive preview of Vyntaris OS. All logic is local; no data leaves this page. */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const pad = n => (n<10?'0':'')+n;
+const fmt = s => Math.floor(s/60)+':'+pad(Math.floor(s%60));
+const LOGO_PATH = 'M12.79 11.4L13.97 10.96L14.92 10.55L15.79 10.12L16.57 9.68L16.88 9.05L16.82 8.75L16.79 8.45L16.78 8.15L16.81 7.85L16.85 7.55L16.92 7.26L17.02 6.97L17.14 6.7L17.28 6.44L17.45 6.19L17.66 5.93L17.86 5.71L18.09 5.51L18.33 5.34L18.59 5.18L18.86 5.04L20.16 2.43L16.16 2.43zM6.69 12.72L8.05 12.57L9.18 12.38L10.35 12.12L11.45 11.83L7.26 2.43L1.08 2.43zM22.55 8.18L22.5 7.74L22.36 7.32L22.14 6.93L21.85 6.6L21.5 6.32L21.1 6.12L20.67 6L20.22 5.97L19.78 6.02L19.36 6.16L18.97 6.38L18.64 6.67L18.36 7.03L18.16 7.42L18.04 7.85L18.01 8.3L18.06 8.74L18.2 9.16L18.42 9.55L18.71 9.88L19.07 10.16L19.46 10.36L19.89 10.48L20.34 10.51L20.78 10.46L21.2 10.32L21.59 10.1L21.92 9.81L22.2 9.45L22.4 9.06L22.52 8.63zM3.06 13.46L3.08 13.5L0.65 14.24L0.75 14.52L0.89 14.78L1.1 15.07L1.3 15.28L1.56 15.51L1.85 15.7L2.15 15.86L2.52 16.01L2.92 16.14L3.34 16.24L3.77 16.32L4.23 16.37L4.78 16.41L5.88 16.41L7.15 16.31L7.92 16.21L8.7 16.08L9.49 15.92L10.4 15.7L11.22 15.49L12.13 15.21L12.93 14.95L13.82 14.62L14.69 14.27L15.44 13.94L16.25 13.55L16.93 13.19L17.66 12.77L18.25 12.39L18.81 12L19.32 11.6L18.83 11.42L18.37 11.17L17.96 10.85L17.59 10.48L16.86 10.93L15.99 11.39L15.03 11.84L13.99 12.27L12.9 12.66L11.87 12.98L10.83 13.27L9.7 13.53L8.59 13.73L7.52 13.88L6.52 13.96L5.6 13.98L4.79 13.94L4.06 13.84L3.48 13.69L3.23 13.58zM13.4 16.08L11.97 16.54L11.02 16.81L10.07 17.05L9.15 17.24L11.07 20.77z';
+const logo = cls => '<svg class="'+cls+'" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="'+LOGO_PATH+'"/></svg>';
+const ICONS = {
+  wifi:'<path d="M2.5 9.5C8 4.5 16 4.5 21.5 9.5"/><path d="M5.5 13c4-3.6 9-3.6 13 0"/><path d="M8.7 16.4c2-1.7 4.6-1.7 6.6 0"/><circle cx="12" cy="19.4" r="1.2" fill="currentColor" stroke="none"/>',
+  wifiOff:'<path d="M2.5 9.5C8 4.5 16 4.5 21.5 9.5"/><path d="M5.5 13c4-3.6 9-3.6 13 0"/><path d="M8.7 16.4c2-1.7 4.6-1.7 6.6 0"/><path d="M3 3l18 18"/>',
+  vol:'<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor" stroke="none"/><path d="M15.5 9a4.6 4.6 0 0 1 0 6"/><path d="M18 6.8a8 8 0 0 1 0 10.4"/>',
+  volMute:'<path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor" stroke="none"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/>',
+  bell:'<path d="M6.3 15.5V11a5.7 5.7 0 0 1 11.4 0v4.5l1.6 2.6H4.7l1.6-2.6z"/><path d="M10.3 20.5a1.8 1.8 0 0 0 3.4 0"/>',
+  mic:'<rect x="9.2" y="3" width="5.6" height="10.5" rx="2.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3"/>',
+  moon:'<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>',
+  game:'<rect x="2.5" y="7.5" width="19" height="10" rx="5"/><path d="M8 10.5v4M6 12.5h4"/><circle cx="15.5" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="14" r="1" fill="currentColor" stroke="none"/>',
+  bt:'<path d="M6.5 7.5l11 9-5.5 4.5V3l5.5 4.5-11 9"/>',
+  power:'<path d="M12 3v8"/><path d="M7.2 6.2a7.5 7.5 0 1 0 9.6 0"/>',
+  lock:'<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  restart:'<path d="M20 12a8 8 0 1 1-2.9-6.2"/><path d="M20 3.5V9h-5.5"/>',
+  search:'<circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L21 21"/>',
+  terminal:'<rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M7 9.5l3 2.7-3 2.7M12.5 15.5H17"/>',
+  files:'<path d="M3 7a2 2 0 0 1 2-2h4.2l2 2.2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>',
+  globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c3.2 3.6 3.2 13.4 0 17-3.2-3.6-3.2-13.4 0-17z"/>',
+  store:'<path d="M5.5 8h13l-1.2 12H6.7L5.5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
+  doctor:'<path d="M12 3l7 2.8v6c0 4.2-3 6.7-7 8.2-4-1.5-7-4-7-8.2v-6L12 3z"/><path d="M12 8.5v6M9 11.5h6"/>',
+  settings:'<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.2 5.2l1.9 1.9M16.9 16.9l1.9 1.9M18.8 5.2l-1.9 1.9M7.1 16.9l-1.9 1.9"/>',
+  music:'<path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+  play:'<path d="M8 5.5v13l10.5-6.5L8 5.5z" fill="currentColor" stroke="none"/>',
+  pause:'<path d="M8 5.5v13M16 5.5v13" stroke-width="2.6"/>',
+  next:'<path d="M6 5.5v13l8.5-6.5L6 5.5z" fill="currentColor" stroke="none"/><path d="M17.5 5.5v13" stroke-width="2.2"/>',
+  prev:'<path d="M18 5.5v13L9.5 12 18 5.5z" fill="currentColor" stroke="none"/><path d="M6.5 5.5v13" stroke-width="2.2"/>',
+  check:'<path d="M5 13l4.2 4.2L19 7.5"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  expand:'<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/>',
+  leaf:'<path d="M5 19C5 9.5 12.5 4 20 4c0 8.5-5.5 15-15 15z"/><path d="M5 19c3-6 7.5-10 12-12"/>',
+  timer:'<circle cx="12" cy="13.5" r="7"/><path d="M12 13.5V9.5M10 2.5h4"/>',
+  sparkle:'<path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9L12 3z" fill="currentColor" stroke="none"/>',
+  chevL:'<path d="M14.5 6l-6 6 6 6"/>',
+  chevR:'<path d="M9.5 6l6 6-6 6"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/>',
+  bolt:'<path d="M13 2.5L4.5 14H11l-1 7.5L18.5 10H12l1-7.5z" fill="currentColor" stroke="none"/>',
+  info:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.6v.6"/>',
+  float:'<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  book:'<path d="M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h14"/>'
+};
+const icon = n => '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[n]||ICONS.info)+'</svg>';
+const batterySVG = (pct,chg) => '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="8" width="16.5" height="8.5" rx="2"/><rect x="20.5" y="10.6" width="2" height="3.3" rx="0.8" fill="currentColor" stroke="none"/><rect x="4.5" y="10" width="'+(12.5*pct/100).toFixed(1)+'" height="4.5" rx="1" fill="currentColor" stroke="none"/></svg>'+(chg?icon('bolt'):'');
+const S = { accent:'#cba6f7', light:false, wifi:true, bt:true, night:false, nightSched:false, warmth:45,
+  game:false, saver:false, vol:65, bright:100, bat:76, charging:false, limit:true, mic:false, ws:1,
+  timer:null, install:null, quiet:0, fps:60 };
+let notifs=[], welcomed=false, sleeping=false, panelTab='control', panelToken=0;
+let results=[], sel=0, wallSel=0, calY=0, calM=0, tickN=0, saverWarned=false, chargeNotified=false;
+let wins=[], widSeq=0, focusId=null, drag=null, metaHeld=false, metaUsed=false;
+const music = { i:0, playing:false, pos:0 };
+const TRACKS = [ {t:'Aurora Lines',a:'Night Circuit',d:214}, {t:'Mauve Horizon',a:'Kernel Panic',d:187}, {t:'Snapshot (Pre-Upgrade Mix)',a:'Timeshift',d:243} ];
+const installed={};
+const STORE = [ ['Firefox','globe','Web browser'], ['Steam','game','Games with Proton'], ['GIMP','sparkle','Image editor'], ['VLC','play','Media player'], ['Obsidian','files','Notes'], ['Lutris','game','Game launcher'] ];
+const DOC = [ {n:'Failed services',d:'None found',ok:true}, {n:'Journal errors',d:'2 entries from last boot',ok:false}, {n:'Orphan packages',d:'3 packages',ok:false}, {n:'Mirrors',d:'Fast and current',ok:true}, {n:'Firmware (fwupd)',d:'Up to date',ok:true}, {n:'Disk health (Btrfs)',d:'No errors · scrubbed this month',ok:true} ];
+const ACCENTS = [ ['Mauve','#cba6f7'], ['Blue','#89b4fa'], ['Lavender','#b4befe'], ['Teal','#94e2d5'], ['Green','#a6e3a1'], ['Yellow','#f9e2af'], ['Peach','#fab387'], ['Red','#f38ba8'], ['Pink','#f5c2e7'] ];
+const RATES = { eur:1, usd:1.08, gbp:0.85, rsd:117.2 };
+function hue(hex){
+  const r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  if(!d) return 0;
+  let h;
+  if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+  return (h*60+360)%360;
+}
+const BASE_HUE = hue('#cba6f7');
+function applyAccent(){
+  document.documentElement.style.setProperty('--accent', S.accent);
+  const f='hue-rotate('+Math.round(hue(S.accent)-BASE_HUE)+'deg)'+(S.light?' brightness(1.5) saturate(.75)':'');
+  $('#wallImg').style.filter=f;
+  $$('.swatch').forEach(s=>s.classList.toggle('sel', s.dataset.arg===S.accent));
+  const i=ACCENTS.findIndex(a=>a[1]===S.accent); if(i>=0) wallSel=i;
+}
+function overlays(){
+  $('#dimmer').style.opacity=((100-S.bright)/100*0.72).toFixed(2);
+  $('#night').style.opacity=S.night?(0.10+S.warmth/100*0.25).toFixed(2):0;
+}
+function setAccent(hex){ S.accent=hex; applyAccent(); renderTab(); refreshSettings(); }
+function setLight(v){ S.light=v; document.body.classList.toggle('light',v); applyAccent(); renderTray(); renderTab(); refreshSettings(); }
+function setWifi(v){ S.wifi=v; renderTray(); renderTab(); refreshSettings(); toast(v?'Wi-Fi connected':'Wi-Fi off', v?'vyntaris-5G':'', v?'wifi':'wifiOff'); }
+function setBt(v){ S.bt=v; renderTab(); refreshSettings(); toast(v?'Bluetooth on':'Bluetooth off', v?'Phone paired · 82%':'', 'bt'); }
+function setNight(v,silent){ S.night=v; overlays(); renderTab(); refreshSettings(); if(!silent) toast(v?'Night light on':'Night light off', v?'A warmer screen':'', 'moon'); }
+function setGame(v){ S.game=v; if(v) S.quiet=0; renderChips(); renderTab(); toast(v?'Game mode on':'Game mode off', v?'Notifications stay quiet · FPS in the island':'', 'game'); }
+function setSaver(v){ S.saver=v; renderTab(); refreshSettings(); toast(v?'Power saver on':'Power saver off','','leaf'); }
+function setVol(v){ S.vol=clamp(Math.round(v),0,100); renderTray(); const o=$('#volOut'); if(o)o.textContent=S.vol+'%'; }
+function setBright(v){ S.bright=clamp(Math.round(v),10,100); overlays(); }
+function setCharging(v){ S.charging=v; chargeNotified=false; renderTray(); renderTab(); refreshSettings(); }
+function check20(){ if(S.bat<=20 && !S.charging && !S.saver && !saverWarned){ saverWarned=true; setSaver(true); toast('Power saver turned on','Battery at 20%','leaf'); } }
+function renderTray(){
+  $('#trayWifi').innerHTML=icon(S.wifi?'wifi':'wifiOff');
+  $('#trayVol').innerHTML=icon(S.vol===0?'volMute':'vol');
+  const b=$('#trayBat');
+  b.innerHTML=batterySVG(S.bat,S.charging)+'<span style="font-family:var(--mono);font-size:11px">'+S.bat+'%</span>';
+  b.classList.toggle('low', S.bat<=20 && !S.charging);
+  $('#trayBell').innerHTML=icon('bell');
+  $('#bellDot').hidden=notifs.length===0;
+  $('#micDot').hidden=!S.mic;
+  $('#micDot').innerHTML=icon('mic');
+  $('#fsBtn').innerHTML=icon('expand');
+}
+function renderChips(){
+  let h='';
+  if(S.install) h+='<span class="chip">'+icon('sparkle')+esc(S.install.label)+' '+S.install.pct+'%</span>';
+  if(S.timer){ const r=Math.max(0,Math.round((S.timer.end-Date.now())/1000)); h+='<button class="chip" data-act="timer-cancel" title="Cancel timer">'+icon('timer')+fmt(r)+'</button>'; }
+  if(music.playing){ const t=TRACKS[music.i].t; h+='<span class="chip">'+icon('music')+esc(t.length>16?t.slice(0,15)+'…':t)+'</span>'; }
+  if(S.game) h+='<span class="chip">'+icon('game')+S.fps+' FPS</span>';
+  if(S.quiet>0) h+='<button class="chip" data-act="quiet-clear" title="Notifications held by game mode">'+icon('bell')+S.quiet+' quiet</button>';
+  $('#chips').innerHTML=h;
+}
+function drawEdge(){
+  if($('#desktop').hidden) return;
+  const bar=$('#bar'), isl=$('#island');
+  const W=bar.clientWidth, il=isl.offsetLeft, ir=il+isl.offsetWidth, c=8, r=10, D=44;
+  const line='M0 36H'+(il-c)+'Q'+il+' 36 '+il+' '+(36+c)+'V'+(D-r)+'Q'+il+' '+D+' '+(il+r)+' '+D+'H'+(ir-r)+'Q'+ir+' '+D+' '+ir+' '+(D-r)+'V'+(36+c)+'Q'+ir+' 36 '+(ir+c)+' 36H'+W;
+  const fill='M0 0H'+W+'V36H'+(ir+c)+'Q'+ir+' 36 '+ir+' '+(36+c)+'V'+(D-r)+'Q'+ir+' '+D+' '+(ir-r)+' '+D+'H'+(il+r)+'Q'+il+' '+D+' '+il+' '+(D-r)+'V'+(36+c)+'Q'+il+' 36 '+(il-c)+' 36H0Z';
+  const e=$('#edge');
+  e.setAttribute('viewBox','0 0 '+W+' 50');
+  e.setAttribute('width',W); e.setAttribute('height',50);
+  $('#edgeFill').setAttribute('d',fill);
+  $('#edgeLine').setAttribute('d',line);
+}
+function toast(t,b,ic){
+  if(S.game){ S.quiet++; renderChips(); return; }
+  notifs.unshift({t:t,b:b||'',ic:ic||'info',time:new Date()});
+  if(notifs.length>12) notifs.pop();
+  $('#bellDot').hidden=false;
+  const el=document.createElement('div');
+  el.className='toast';
+  el.innerHTML=icon(ic||'info')+'<span><b>'+esc(t)+'</b>'+(b?'<small>'+esc(b)+'</small>':'')+'</span>';
+  $('#toasts').appendChild(el);
+  setTimeout(()=>el.remove(),4600);
+  if(!$('#panel').hidden && panelTab==='control' && $('#results').hidden) renderTab();
+}
+function openPanel(tab){
+  panelToken++;
+  $('#panel').hidden=false;
+  setTab(tab||panelTab);
+  $('#q').value=''; $('#results').hidden=true; $('#tabs').hidden=false; $('#tabbody').hidden=false;
+  requestAnimationFrame(()=>$('#panel').classList.add('on'));
+  setTimeout(()=>$('#q').focus(),40);
+}
+function closePanel(now){
+  $('#panel').classList.remove('on');
+  const t=++panelToken;
+  if(now){ $('#panel').hidden=true; }
+  else setTimeout(()=>{ if(t===panelToken) $('#panel').hidden=true; },150);
+}
+function togglePanel(){ $('#panel').hidden ? openPanel() : closePanel(); }
+function setTab(t){
+  panelTab=t;
+  $$('#tabs button').forEach(b=>{ if(b.dataset.arg===t) b.setAttribute('aria-selected','true'); else b.removeAttribute('aria-selected'); });
+  renderTab();
+}
+function tile(act,on,ic,title,sub){
+  return '<button class="tile'+(on?' on':'')+'" data-act="'+act+'">'+icon(ic)+'<span><b>'+title+'</b><small>'+sub+'</small></span></button>';
+}
+function slider(act,label,v,min){
+  return '<div class="srow"><div class="lab"><span>'+label+'</span><output>'+v+'%</output></div><input type="range" min="'+(min||0)+'" max="100" value="'+v+'" data-act="'+act+'" aria-label="'+label+'"></div>';
+}
+function calHTML(){
+  const now=new Date();
+  const first=(new Date(calY,calM,1).getDay()+6)%7;
+  const days=new Date(calY,calM+1,0).getDate();
+  let h=['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>'<span class="dow">'+d+'</span>').join('');
+  for(let i=0;i<first;i++) h+='<span></span>';
+  for(let d=1;d<=days;d++){
+    const today=d===now.getDate()&&calM===now.getMonth()&&calY===now.getFullYear();
+    h+='<span'+(today?' class="today"':'')+'>'+d+'</span>';
+  }
+  return h;
+}
+function mediaHTML(){
+  const t=TRACKS[music.i], pct=(music.pos/t.d*100).toFixed(1);
+  return '<div class="media"><div class="top">'+icon('music')+'<span style="flex:1;min-width:0"><b id="mTitle">'+esc(t.t)+'</b><small id="mArtist">'+esc(t.a)+'</small></span></div>'+
+    '<div class="mprog"><i id="mProg" style="width:'+pct+'%"></i></div>'+
+    '<div class="mtime"><span id="mPos">'+fmt(music.pos)+'</span><span>'+fmt(t.d)+'</span></div>'+
+    '<div class="mctl"><button data-act="music-prev" title="Previous">'+icon('prev')+'</button><button class="big" data-act="music-play" id="mPlay" title="Play / pause">'+icon(music.playing?'pause':'play')+'</button><button data-act="music-next" title="Next">'+icon('next')+'</button></div></div>';
+}
+function controlHTML(){
+  const month=new Date(calY,calM,1).toLocaleString('en',{month:'long'})+' '+calY;
+  let h='<div class="tiles">'
+    + tile('wifi',S.wifi,'wifi','Wi-Fi',S.wifi?'vyntaris-5G':'Off')
+    + tile('bt',S.bt,'bt','Bluetooth',S.bt?'Phone · 82%':'Off')
+    + tile('night',S.night,'moon','Night light',S.night?(S.nightSched?'On · scheduled':'On'):'Off')
+    + tile('game',S.game,'game','Game mode',S.game?'Quiet · FPS in island':'Off')
+    + tile('dark',!S.light,S.light?'sun':'moon','Dark mode',S.light?'Light now':'Dark now')
+    + tile('saver',S.saver,'leaf','Power saver',S.saver?'On':'Off')
+    + '</div>';
+  h+=slider('vol','Volume',S.vol)+slider('bright','Brightness',S.bright,10);
+  h+=mediaHTML();
+  h+='<div class="cardline">'+batterySVG(S.bat,S.charging)+'<span class="grow"><b>'+S.bat+'%</b><small>'+(S.charging?('Charging'+(S.limit?' · limit 80%':'')):'On battery')+(S.saver?' · power saver':'')+'</small></span><button class="btn sm'+(S.charging?' primary':'')+'" data-act="charging">'+(S.charging?'Unplug':'Plug in')+'</button></div>';
+  h+='<label class="srow2" style="padding:0 2px"><input type="checkbox" data-act="limit"'+(S.limit?' checked':'')+'><span class="grow">Stop charging at 80% <small>if the laptop supports it</small></span></label>';
+  h+=slider('bat-demo','Battery level (demo)',S.bat,3);
+  h+='<div><div class="calhead"><button data-act="cal-prev" title="Previous month">'+icon('chevL')+'</button><span>'+month+'</span><button data-act="cal-next" title="Next month">'+icon('chevR')+'</button></div><div class="cal">'+calHTML()+'</div></div>';
+  h+='<div class="calhead"><span class="sect">NOTIFICATIONS</span><button class="btn sm" data-act="notif-clear">Clear</button></div>';
+  if(notifs.length){
+    h+=notifs.slice(0,6).map(n=>'<div class="notif">'+icon(n.ic)+'<span style="flex:1;min-width:0"><b>'+esc(n.t)+'</b>'+(n.b?'<small>'+esc(n.b)+'</small>':'')+'</span><time>'+pad(n.time.getHours())+':'+pad(n.time.getMinutes())+'</time></div>').join('');
+  } else h+='<p class="empty">Nothing new.</p>';
+  h+='<div class="prow"><button data-act="power-lock">'+icon('lock')+'Lock</button><button data-act="power-sleep">'+icon('moon')+'Sleep</button><button data-act="power-restart">'+icon('restart')+'Restart</button><button data-act="power-off">'+icon('power')+'Shut down</button></div>';
+  h+='<div class="cardline">'+icon('mic')+'<span class="grow"><b>Privacy demo</b><small>Light the mic dot in the bar</small></span><button class="btn sm" data-act="mic-demo">Simulate</button></div>';
+  return h;
+}
+function wallHTML(){
+  return '<p class="sect">PICK A COLOUR — THE WALLPAPER AND APPS FOLLOW</p><div class="swatches">'
+    + ACCENTS.map(a=>'<button class="swatch'+(a[1]===S.accent?' sel':'')+'" style="background:'+a[1]+'" data-act="accent" data-arg="'+a[1]+'">'+a[0]+'</button>').join('')
+    + '</div><div class="tiles">'+tile('dark',!S.light,S.light?'sun':'moon',S.light?'Light mode':'Dark mode','Applies everywhere')+'</div>'
+    + '<p class="fine">Browse with the arrow keys, press Enter to set one. Online, the official wallpaper is hue-shifted to your colour; offline a gradient stands in.</p>';
+}
+function gameHTML(){
+  return '<div class="tiles">'+tile('game',S.game,'game','Game mode',S.game?'On':'Off')+'</div>'
+    + '<div class="cardline">'+icon('game')+'<span class="grow"><b>'+(S.game?S.fps+' FPS':'Waiting for a game')+'</b><small>'+(S.game?'Notifications are held quietly in the island':'Turns on by itself when a game starts in the real OS')+'</small></span></div>'
+    + '<p class="fine">Try installing something from the Store while game mode is on — its notifications pile up as “quiet” in the island.</p>';
+}
+function nightHTML(){
+  return '<div class="tiles">'+tile('night',S.night,'moon','Night light',S.night?'On':'Off')+'</div>'
+    + '<label class="srow2" style="padding:0 2px"><input type="checkbox" data-act="night-sched"'+(S.nightSched?' checked':'')+'><span class="grow">On a schedule <small>from 21:00 to 07:00</small></span></label>'
+    + slider('warmth','Warmth',S.warmth,10)
+    + '<p class="fine">A warmer screen in the evening, whenever you want or on a schedule.</p>';
+}
+function launcherHTML(){
+  const quick=['volume 40','dark mode','timer 5m','100 eur to rsd','check my system','set up games'];
+  return '<p class="sect">JUST START TYPING</p>'
+    + quick.map(qk=>'<button class="res" data-act="cmd" data-arg="'+qk+'">'+icon('sparkle')+'<span><b>'+qk+'</b><small>Plain words work in the search</small></span></button>').join('')
+    + '<p class="fine">Apps, files, settings, even “volume 40” or “100 eur to usd”.</p>';
+}
+function renderTab(){
+  const b=$('#tabbody');
+  if(panelTab==='control') b.innerHTML=controlHTML();
+  else if(panelTab==='wall') b.innerHTML=wallHTML();
+  else if(panelTab==='game') b.innerHTML=gameHTML();
+  else if(panelTab==='night') b.innerHTML=nightHTML();
+  else b.innerHTML=launcherHTML();
+}
+function parseCommand(v){
+  let m;
+  if((m=v.match(/^volume\s+(\d{1,3})$/i))) { const n=clamp(+m[1],0,100); return {name:'Set volume to '+n+'%',desc:'Sound',ic:'vol',run:()=>{setVol(n);toast('Volume '+n+'%','','vol');}}; }
+  if((m=v.match(/^brightness\s+(\d{1,3})$/i))) { const n=clamp(+m[1],10,100); return {name:'Set brightness to '+n+'%',desc:'Display',ic:'sun',run:()=>{setBright(n);toast('Brightness '+n+'%','','sun');}}; }
+  if((m=v.match(/^(dark|light)\s+mode$/i))) { const toLight=m[1].toLowerCase()==='light'; return {name:(toLight?'Light':'Dark')+' mode',desc:'Switch the whole system',ic:toLight?'sun':'moon',run:()=>setLight(toLight)}; }
+  if((m=v.match(/^(?:turn\s+)?(wi-?fi|bluetooth|night\s?light|game\s?mode|power\s?saver)\s+(on|off)$/i))){
+    const key=m[1].toLowerCase().replace(/[-\s]/g,''), on=m[2].toLowerCase()==='on';
+    const map={wifi:setWifi,bluetooth:setBt,nightlight:setNight,gamemode:setGame,powersaver:setSaver};
+    return {name:m[1]+' '+m[2],desc:'Toggle',ic:'sparkle',run:()=>map[key](on)};
+  }
+  if((m=v.match(/^timer\s+(\d+)\s*(s|m|h)$/i))){
+    const n=+m[1], u=m[2].toLowerCase(), ms=n*(u==='s'?1000:u==='m'?60000:3600000);
+    if(ms>3*3600000) return {name:'Timer too long',desc:'Up to 3 hours in the preview',ic:'timer',run:()=>{}};
+    return {name:'Timer '+n+u,desc:'Shows in the island',ic:'timer',run:()=>{S.timer={end:Date.now()+ms};renderChips();toast('Timer set',n+u+' — counts down in the island','timer');}};
+  }
+  if((m=v.match(/^(\d+(?:[.,]\d+)?)\s*(eur|usd|rsd|gbp)\s+(?:to|in)\s+(eur|usd|rsd|gbp)$/i))){
+    const n=parseFloat(m[1].replace(',','.')), from=m[2].toLowerCase(), to=m[3].toLowerCase();
+    const out=(n*RATES[to]/RATES[from]).toFixed(2);
+    const label=n+' '+from.toUpperCase()+' = '+out+' '+to.toUpperCase();
+    return {name:label,desc:'Offline demo rate — not live',ic:'sparkle',run:()=>toast(label,'Demo exchange rate','sparkle')};
+  }
+  if(/^check my system$/i.test(v)) return {name:'Check my system',desc:'Open Dr. Help',ic:'doctor',run:()=>openApp('doctor')};
+  if(/^set up games$/i.test(v)) return {name:'Set up games',desc:'Steam + Proton, Lutris, GameMode, MangoHud',ic:'game',run:setupGames};
+  return null;
+}
+const INDEX=[
+  {name:'Terminal',keys:'console shell',ic:'terminal',desc:'SUPER+ENTER',run:()=>openApp('terminal')},
+  {name:'Files',keys:'file manager quick look',ic:'files',desc:'SUPER+E · preview stub',run:()=>openApp('files')},
+  {name:'Firefox',keys:'browser web',ic:'globe',desc:'SUPER+B · preview stub',run:()=>openApp('firefox')},
+  {name:'Store',keys:'apps install software',ic:'store',desc:'Install apps with a click',run:()=>openApp('store')},
+  {name:'Dr. Help',keys:'doctor fix check system maintenance',ic:'doctor',desc:'Checks your system and fixes what it can',run:()=>openApp('doctor')},
+  {name:'Settings',keys:'preferences control',ic:'settings',desc:'SUPER+I',run:()=>openApp('settings')},
+  {name:'Dark mode',keys:'light theme appearance',ic:'moon',desc:'Switch between light and dark',run:()=>setLight(!S.light)},
+  {name:'Wi-Fi',keys:'network wireless internet',ic:'wifi',desc:'Toggle',run:()=>setWifi(!S.wifi)},
+  {name:'Bluetooth',keys:'phone pair kde connect',ic:'bt',desc:'Toggle',run:()=>setBt(!S.bt)},
+  {name:'Night light',keys:'warm evening blue',ic:'moon',desc:'Toggle',run:()=>setNight(!S.night)},
+  {name:'Game mode',keys:'fps gaming quiet',ic:'game',desc:'Toggle',run:()=>setGame(!S.game)},
+  {name:'Power saver',keys:'battery leaf',ic:'leaf',desc:'Toggle',run:()=>setSaver(!S.saver)},
+  {name:'Wallpapers & colour',keys:'accent theme color',ic:'sparkle',desc:'Pick a colour — everything follows',keep:true,run:()=>{openPanel('wall');}},
+  {name:'Set up games',keys:'steam proton lutris',ic:'game',desc:'Installs the gaming stack (simulated)',run:setupGames},
+  {name:'Backup',keys:'google drive folders',ic:'files',desc:'Not part of this preview',run:()=>toast('Backup','Google Drive backup is not part of this preview','info')},
+  {name:'Offline Arch Wiki',keys:'help docs SUPER SHIFT H',ic:'book',desc:'Not part of this preview (~240 MB in the real OS)',run:()=>toast('Offline Arch Wiki','Not part of this preview','book')},
+  {name:'Lock screen',keys:'lock',ic:'lock',desc:'SUPER+ESC → Lock',run:goLock},
+  {name:'Restart',keys:'reboot',ic:'restart',desc:'',run:restart},
+  {name:'Shut down',keys:'power off',ic:'power',desc:'',run:shutdown}
+];
+function computeResults(v){
+  const arr=[]; const cmd=parseCommand(v); if(cmd) arr.push(cmd);
+  const words=v.toLowerCase().split(/\s+/).filter(Boolean);
+  INDEX.forEach(it=>{
+    const hay=(it.name+' '+(it.keys||'')).toLowerCase();
+    if(words.every(w=>hay.indexOf(w)>=0) && !arr.some(x=>x.name===it.name)) arr.push(it);
+  });
+  return arr.slice(0,9);
+}
+function renderResults(){
+  const r=$('#results');
+  if(!results.length){ r.innerHTML='<p class="empty">No matches. Try “volume 40”, “timer 5m”, “dark mode”, “100 eur to usd”.</p>'; return; }
+  r.innerHTML=results.map((it,i)=>'<button class="res'+(i===sel?' sel':'')+'" data-act="launch" data-arg="'+i+'">'+icon(it.ic||'sparkle')+'<span><b>'+esc(it.name)+'</b><small>'+esc(it.desc||'')+'</small></span></button>').join('');
+}
+function doSearch(){
+  const v=$('#q').value.trim();
+  if(!v){ $('#results').hidden=true; $('#tabs').hidden=false; $('#tabbody').hidden=false; return; }
+  $('#tabs').hidden=true; $('#tabbody').hidden=true; $('#results').hidden=false;
+  results=computeResults(v); sel=0; renderResults();
+}
+function launch(i){
+  const it=results[i]; if(!it) return;
+  it.run();
+  if(!it.keep) closePanel();
+}
+const APPS={
+  terminal:{name:'Terminal',ic:'terminal',build:buildTerminal},
+  settings:{name:'Settings',ic:'settings',build:buildSettings},
+  store:{name:'Store',ic:'store',build:buildStore},
+  doctor:{name:'Dr. Help',ic:'doctor',build:buildDoctor},
+  files:{name:'Files',ic:'files',stub:'The file manager is not part of this preview. In the real OS, pressing Space here gives you Quick Look.'},
+  firefox:{name:'Firefox',ic:'globe',stub:'The browser is not part of this preview. In the real OS it ships with uBlock Origin, Bitwarden and Privacy Badger and follows your accent colour.'}
+};
+const getWin=id=>wins.find(w=>w.id===id);
+function openApp(id){
+  const def=APPS[id]; if(!def) return;
+  const ex=wins.find(w=>w.app===id&&w.ws===S.ws);
+  if(ex){ focusWin(ex.id); return; }
+  const w={id:++widSeq,app:id,ws:S.ws,float:false};
+  const el=document.createElement('section');
+  el.className='win';
+  const body=document.createElement('div'); body.className='win-body';
+  if(def.build) def.build(body,w);
+  else body.innerHTML='<div class="stub">'+icon(def.ic)+'<b>'+def.name+'</b><p>'+def.stub+'</p><p class="fine">Press SUPER+F1 for every key.</p></div>';
+  const cap=document.createElement('div'); cap.className='cap';
+  cap.innerHTML='<b>'+def.name+'</b><span class="grow">'+(def.build?'':'preview stub')+'</span><button data-act="float" data-arg="'+w.id+'" title="Float / tile (SUPER+SHIFT+SPACE)">'+icon('float')+'</button><button data-act="close" data-arg="'+w.id+'" title="Close (SUPER+Q)">'+icon('x')+'</button>';
+  el.appendChild(body); el.appendChild(cap);
+  w.el=el; w.body=body; wins.push(w);
+  $('#wins').appendChild(el);
+  el.addEventListener('mousedown',()=>focusWin(w.id));
+  cap.addEventListener('pointerdown',e=>{
+    if(!w.float||e.target.closest('button')) return;
+    drag={w:w,dx:e.clientX-parseFloat(el.style.left||'0'),dy:e.clientY-parseFloat(el.style.top||'0')};
+    cap.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  cap.addEventListener('pointermove',e=>{
+    if(!drag||drag.w!==w) return;
+    const pr=$('#wins').getBoundingClientRect();
+    el.style.left=clamp(e.clientX-drag.dx,-40,pr.width-90)+'px';
+    el.style.top=clamp(e.clientY-drag.dy,0,pr.height-40)+'px';
+  });
+  cap.addEventListener('pointerup',()=>{drag=null;});
+  cap.addEventListener('pointercancel',()=>{drag=null;});
+  mountWins(); focusWin(w.id); renderWs();
+}
+function mountWins(){ wins.forEach(w=>{ w.el.hidden = w.ws!==S.ws; }); }
+function focusWin(id){
+  focusId=id;
+  wins.forEach(w=>w.el.classList.toggle('focus',w.id===id));
+  const w=getWin(id);
+  $('#winTitle').textContent=w?APPS[w.app].name:'';
+}
+function closeWin(id){
+  const w=getWin(id); if(!w) return;
+  w.el.remove(); wins=wins.filter(x=>x.id!==id);
+  if(focusId===id){
+    focusId=null; $('#winTitle').textContent='';
+    const vis=wins.filter(x=>x.ws===S.ws);
+    if(vis.length) focusWin(vis[vis.length-1].id);
+  }
+  renderWs();
+}
+function toggleFloat(id){
+  const w=getWin(id); if(!w) return;
+  if(!w.float){
+    const r=w.el.getBoundingClientRect(), pr=$('#wins').getBoundingClientRect();
+    w.float=true; w.el.classList.add('float');
+    w.el.style.left=(r.left-pr.left)+'px'; w.el.style.top=(r.top-pr.top)+'px';
+    w.el.style.width=r.width+'px'; w.el.style.height=r.height+'px';
+  } else {
+    w.float=false; w.el.classList.remove('float'); w.el.style.cssText='';
+  }
+  focusWin(id);
+}
+function setWs(n){
+  S.ws=n; mountWins(); renderWs();
+  const vis=wins.filter(x=>x.ws===S.ws);
+  if(vis.length) focusWin(vis[vis.length-1].id); else { focusId=null; $('#winTitle').textContent=''; }
+}
+function renderWs(){
+  $$('#wsNav button').forEach(b=>{
+    const n=+b.dataset.arg, count=wins.filter(w=>w.ws===n).length;
+    if(n===S.ws) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');
+    b.innerHTML=n+(count?'<i></i>':'');
+  });
+}
+function buildTerminal(body,w){
+  body.innerHTML='<div class="term"><div class="tlog"></div><div><span class="p">shadow@vyntaris</span><span class="dim">:</span><span class="k">~</span><span class="dim">$</span> <input type="text" autocomplete="off" spellcheck="false" aria-label="Terminal input"></div></div>';
+  const log=body.querySelector('.tlog'), inp=body.querySelector('input'), term=body.querySelector('.term');
+  const print=h=>{ const d=document.createElement('div'); d.innerHTML=h; log.appendChild(d); body.scrollTop=body.scrollHeight; };
+  print('<span class="dim">Vyntaris preview shell — type </span><span class="k">help</span><span class="dim">. Nothing here touches your real system.</span>');
+  const prompt='<span class="p">shadow@vyntaris</span><span class="dim">:</span><span class="k">~</span><span class="dim">$</span> ';
+  inp.addEventListener('keydown',e=>{
+    if(e.metaKey||(e.ctrlKey&&e.altKey)||e.key==='Escape') return;
+    e.stopPropagation();
+    if(e.key!=='Enter') return;
+    const v=inp.value.trim(); inp.value='';
+    print(prompt+esc(v));
+    runCmd(v);
+  });
+  term.addEventListener('click',()=>inp.focus());
+  function runCmd(v){
+    if(!v) return;
+    const parts=v.split(/\s+/), c=parts[0];
+    if(c==='help') print('Commands: <span class="k">fetch</span>, <span class="k">pacman -Syu</span>, ls, echo, whoami, date, uname, clear, exit');
+    else if(c==='fetch'||c==='neofetch') print('<div class="fetch">'+logo('logo')+'<dl><dt>OS</dt><dd>Vyntaris, on Arch Linux (preview)</dd><dt>Kernel</dt><dd>linux, straight from Arch</dd><dt>WM</dt><dd>Hyprland</dd><dt>Shell</dt><dd>Quickshell, tools in Rust</dd><dt>Disk</dt><dd>Btrfs with zstd</dd><dt>Swap</dt><dd>zram</dd><dt>Firewall</dt><dd>nftables</dd><dt>Packages</dt><dd>671</dd><dt>Memory</dt><dd>519 MB at rest</dd></dl></div>');
+    else if(c==='clear') log.innerHTML='';
+    else if(c==='echo') print(esc(parts.slice(1).join(' ')));
+    else if(c==='whoami') print('shadow');
+    else if(c==='date') print(esc(new Date().toString()));
+    else if(c==='uname') print('Linux vyntaris 6.17.9-arch1-1 #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux <span class="dim">(preview)</span>');
+    else if(c==='ls') print('Desktop&nbsp;&nbsp;Documents&nbsp;&nbsp;Downloads&nbsp;&nbsp;Music&nbsp;&nbsp;Pictures&nbsp;&nbsp;Videos');
+    else if(c==='pacman'){
+      if(parts[1]==='-Syu') simUpdate(print);
+      else print('<span class="dim">pacman: this preview only simulates -Syu</span>');
+    }
+    else if(c==='sudo') print('<span class="dim">This is a preview — no real sudo here.</span>');
+    else if(c==='exit') closeWin(w.id);
+    else print(esc(c)+': command not found <span class="dim">(preview shell)</span>');
+  }
+}
+function startInstall(label,done){
+  if(S.install){ toast('Busy','Another install is already running','info'); return false; }
+  S.install={label:label,pct:0,iv:null};
+  S.install.iv=setInterval(()=>{
+    if(!S.install) return;
+    S.install.pct=Math.min(100,S.install.pct+3+Math.floor(Math.random()*6));
+    renderChips();
+    if(S.install.pct>=100){ clearInterval(S.install.iv); S.install=null; renderChips(); done(); }
+  },260);
+  renderChips();
+  return true;
+}
+function simUpdate(print){
+  if(S.install){ print('<span class="dim">an update is already running</span>'); return; }
+  toast('Timeshift','Snapshot taken before the upgrade','doctor');
+  const lines=[[5,':: Synchronizing package databases…'],[22,':: Starting full system upgrade…'],[40,'&nbsp;&nbsp;linux 6.17.9-arch1-1 → 6.18.1-arch1-1'],[55,'&nbsp;&nbsp;firefox 145.0-1 → 145.0.2-1'],[70,'&nbsp;&nbsp;vyntaris-shell 1.4.2-1 → 1.4.3-1'],[85,':: Processing package changes…']];
+  const printed={};
+  const ok=startInstall('Updating',()=>{
+    print('<span class="k">System is up to date.</span> <span class="dim">(simulated — on the real OS a bad update undoes itself after three failed boots)</span>');
+    toast('Update complete','Snapshot kept · rollback armed','check');
+  });
+  if(!ok) return;
+  const iv=setInterval(()=>{
+    if(!S.install){ clearInterval(iv); return; }
+    lines.forEach(l=>{ if(S.install && S.install.pct>=l[0] && !printed[l[0]]){ printed[l[0]]=true; print(l[1]); } });
+  },240);
+}
+function settingsHTML(){
+  let h='<div class="setsec"><h4>APPEARANCE</h4><div class="tiles">'+tile('dark',!S.light,S.light?'sun':'moon',S.light?'Light mode':'Dark mode','Applies everywhere')+'</div><div class="swatches">'
+    + ACCENTS.map(a=>'<button class="swatch'+(a[1]===S.accent?' sel':'')+'" style="background:'+a[1]+'" data-act="accent" data-arg="'+a[1]+'">'+a[0]+'</button>').join('')+'</div></div>';
+  h+='<div class="setsec"><h4>NETWORK</h4><div class="tiles">'+tile('wifi',S.wifi,'wifi','Wi-Fi',S.wifi?'vyntaris-5G':'Off')+tile('bt',S.bt,'bt','Bluetooth',S.bt?'Phone · 82%':'Off')+'</div></div>';
+  h+='<div class="setsec"><h4>SOUND &amp; DISPLAY</h4>'+slider('vol','Volume',S.vol)+slider('bright','Brightness',S.bright,10)+'<div class="tiles">'+tile('night',S.night,'moon','Night light',S.night?'On':'Off')+'</div></div>';
+  h+='<div class="setsec"><h4>POWER</h4><div class="tiles">'+tile('saver',S.saver,'leaf','Power saver',S.saver?'On':'Off')+tile('charging',S.charging,'bolt','Charging',S.charging?'Plugged in':'On battery')+'</div><label class="srow2"><input type="checkbox" data-act="limit"'+(S.limit?' checked':'')+'><span class="grow">Stop charging at 80%</span></label></div>';
+  h+='<div class="setsec"><h4>ABOUT</h4><p class="fine">Unofficial interactive preview — not affiliated with Vyntaris. Theme tokens, logo and bar geometry come from the official site\u2019s published CSS. The real OS: <a href="https://vyntarisos.com" target="_blank" rel="noopener">vyntarisos.com</a> · free software under GPLv3+.</p></div>';
+  return h;
+}
+function buildSettings(body,w){ body.innerHTML=settingsHTML(); w.refresh=()=>{ body.innerHTML=settingsHTML(); }; }
+function refreshSettings(){ wins.forEach(w=>{ if(w.app==='settings'&&w.refresh) w.refresh(); }); }
+function storeHTML(){
+  return STORE.map(s=>{
+    const inst=!!installed[s[0]];
+    return '<div class="store-row">'+icon(s[1])+'<span class="grow"><b>'+s[0]+'</b><small>'+s[2]+'</small></span><button class="btn sm'+(inst?'':' primary')+'" data-act="'+(inst?'uninstall':'install')+'" data-arg="'+s[0]+'">'+(inst?'Remove':'Install')+'</button></div>';
+  }).join('')+'<p class="note">The Store lists every app from Arch\u2019s repositories. The AUR is off until you turn it on — anyone can upload there. Installs are simulated in this preview.</p>';
+}
+function buildStore(body,w){ body.innerHTML=storeHTML(); w.refresh=()=>{ body.innerHTML=storeHTML(); }; }
+function refreshStores(){ wins.forEach(w=>{ if(w.app==='store'&&w.refresh) w.refresh(); }); }
+function installItem(name){
+  startInstall(name,()=>{ installed[name]=true; refreshStores(); toast(name+' installed','From the Store — no terminal needed','check'); });
+}
+function uninstallItem(name){ delete installed[name]; refreshStores(); toast(name+' removed','','x'); }
+function doctorHTML(){
+  const bad=DOC.some(r=>!r.ok);
+  let h='<div class="cardline" style="margin:12px 16px;border-radius:12px">'+icon('doctor')+'<span class="grow"><b>System check</b><small>The checks the Arch Wiki\u2019s maintenance page recommends</small></span>'+(bad?'<button class="btn sm primary" data-act="fix-all">Fix everything</button>':'<span class="chip">'+icon('check')+'All good</span>')+'</div>';
+  h+=DOC.map((r,i)=>'<div class="doc-row'+(r.ok?'':' bad')+'">'+icon(r.ok?'check':'info')+'<span class="grow">'+r.n+'<small>'+r.d+'</small></span>'+(r.ok?'':'<button class="btn sm" data-act="fix" data-arg="'+i+'">Fix</button>')+'</div>').join('');
+  return h;
+}
+function buildDoctor(body,w){ body.innerHTML=doctorHTML(); w.refresh=()=>{ body.innerHTML=doctorHTML(); }; }
+function refreshDoctors(){ wins.forEach(w=>{ if(w.app==='doctor'&&w.refresh) w.refresh(); }); }
+function fixDoc(i){ DOC[i].ok=true; DOC[i].d='Fixed'; refreshDoctors(); toast('Dr. Help',DOC[i].n+' — fixed','check'); }
+function fixAll(){ let d=0; DOC.forEach((r,i)=>{ if(!r.ok){ setTimeout(()=>fixDoc(i),d); d+=380; } }); }
+function setupGames(){
+  startInstall('Games',()=>{ setGame(true); toast('Games ready','Steam + Proton, Lutris, GameMode, MangoHud (simulated)','game'); });
+}
+function hideOverlays(){ ['apps','keys','power'].forEach(id=>{ $('#'+id).hidden=true; }); $('#micPop').hidden=true; }
+function goBoot(){
+  hideOverlays(); closePanel(true);
+  $('#desktop').hidden=true; $('#lock').hidden=true; $('#off').hidden=true; $('#boot').hidden=false;
+  setTimeout(()=>{ $('#boot').hidden=true; $('#lock').hidden=false; $('#pw').value=''; tickClock(); $('#pw').focus(); },2300);
+}
+function login(){
+  const pw=$('#pw');
+  if(!pw.value){ pw.classList.remove('shake'); void pw.offsetWidth; pw.classList.add('shake'); return; }
+  $('#lock').hidden=true; $('#desktop').hidden=false;
+  drawEdge(); renderTray(); renderChips(); renderWs();
+  if(!welcomed){ welcomed=true; setTimeout(()=>toast('Welcome, shadow','Drivers installed automatically (simulated)','check'),900); }
+}
+function goLock(){
+  hideOverlays(); closePanel(true);
+  $('#desktop').hidden=true; $('#boot').hidden=true; $('#off').hidden=true;
+  $('#lock').hidden=false; $('#pw').value=''; tickClock(); $('#pw').focus();
+}
+function resetSession(){
+  wins.forEach(w=>w.el.remove()); wins=[]; focusId=null; $('#winTitle').textContent='';
+  if(S.install){ clearInterval(S.install.iv); S.install=null; }
+  S.ws=1; S.game=false; S.mic=false; S.timer=null; S.quiet=0;
+  music.playing=false; music.pos=0; notifs=[];
+  $('#toasts').innerHTML=''; hideOverlays();
+  renderTray(); renderChips(); renderWs();
+}
+function restart(){ resetSession(); goBoot(); }
+function shutdown(){ resetSession(); closePanel(true); $('#desktop').hidden=true; $('#lock').hidden=true; $('#boot').hidden=true; $('#off').hidden=false; }
+function sleepNow(){ sleeping=true; closePanel(true); hideOverlays(); $('#sleep').classList.add('on'); }
+function wake(){ sleeping=false; $('#sleep').classList.remove('on'); goLock(); }
+function micDemo(){ S.mic=true; renderTray(); toast('Firefox is using the microphone','A dot lights up in the bar','mic'); }
+function toggleFs(){
+  if(!document.fullscreenElement){
+    const p=document.documentElement.requestFullscreen();
+    if(p&&p.then) p.then(()=>{ if(navigator.keyboard&&navigator.keyboard.lock){ const q=navigator.keyboard.lock(['MetaLeft','MetaRight','F1','Escape']); if(q&&q.catch) q.catch(()=>{}); } }).catch(()=>{});
+  } else document.exitFullscreen();
+}
+function tickClock(){
+  const now=new Date(), t=pad(now.getHours())+':'+pad(now.getMinutes());
+  $('#clock').textContent=t; $('#lockClock').textContent=t;
+  $('#lockDate').textContent=now.toLocaleDateString('en',{weekday:'long',day:'numeric',month:'long'});
+}
+function updateMedia(){
+  const t=TRACKS[music.i];
+  const a=$('#mTitle'); if(a){ a.textContent=t.t; $('#mArtist').textContent=t.a; $('#mProg').style.width=(music.pos/t.d*100)+'%'; $('#mPos').textContent=fmt(music.pos); $('#mPlay').innerHTML=icon(music.playing?'pause':'play'); }
+}
+setInterval(()=>{
+  tickN++;
+  tickClock();
+  if(S.timer){
+    if(Date.now()>=S.timer.end){ S.timer=null; toast('Timer finished','','timer'); }
+    renderChips();
+  }
+  if(S.game){ S.fps=58+Math.floor(Math.random()*7); renderChips(); if(!$('#panel').hidden&&panelTab==='game'&&$('#results').hidden) renderTab(); }
+  if(music.playing){ music.pos++; if(music.pos>=TRACKS[music.i].d){ music.i=(music.i+1)%TRACKS.length; music.pos=0; renderChips(); } updateMedia(); }
+  if(S.nightSched){ const h=new Date().getHours(), should=h>=21||h<7; if(should!==S.night) setNight(should,true); }
+  if(tickN%40===0){
+    const cap=S.limit?80:100;
+    if(S.charging){ if(S.bat<cap){ S.bat++; } else if(S.limit&&!chargeNotified){ chargeNotified=true; toast('Charging stopped at 80%','Easier on the battery','bolt'); } }
+    else if(S.bat>3){ S.bat--; check20(); }
+    renderTray();
+    const ae=document.activeElement;
+    if(!$('#panel').hidden&&panelTab==='control'&&$('#results').hidden&&!(ae&&ae.type==='range')) renderTab();
+  }
+},1000);
+document.addEventListener('click',e=>{
+  if(e.target.classList&&e.target.classList.contains('overlay')){ e.target.hidden=true; return; }
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const act=b.dataset.act, arg=b.dataset.arg;
+  if(act==='island') togglePanel();
+  else if(act==='tray') openPanel('control');
+  else if(act==='tab'){ setTab(arg); $('#q').value=''; $('#results').hidden=true; $('#tabs').hidden=false; $('#tabbody').hidden=false; $('#q').focus(); }
+  else if(act==='ws') setWs(+arg);
+  else if(act==='accent') setAccent(arg);
+  else if(act==='app'){ openApp(arg); $('#apps').hidden=true; }
+  else if(act==='setup-games'){ setupGames(); $('#apps').hidden=true; }
+  else if(act==='launch') launch(+arg);
+  else if(act==='cmd'){ $('#q').value=arg; doSearch(); $('#q').focus(); }
+  else if(act==='wifi') setWifi(!S.wifi);
+  else if(act==='bt') setBt(!S.bt);
+  else if(act==='night') setNight(!S.night);
+  else if(act==='game') setGame(!S.game);
+  else if(act==='dark') setLight(!S.light);
+  else if(act==='saver') setSaver(!S.saver);
+  else if(act==='charging') setCharging(!S.charging);
+  else if(act==='mic-demo') micDemo();
+  else if(act==='mic-pop'){
+    const p=$('#micPop');
+    if(p.hidden){ p.innerHTML='<b>'+icon('mic')+'Microphone in use</b><p>Firefox is using your microphone. The panel tells you which app it is.</p><button class="btn sm primary" data-act="mic-stop">Stop access</button>'; p.hidden=false; }
+    else p.hidden=true;
+  }
+  else if(act==='mic-stop'){ S.mic=false; $('#micPop').hidden=true; renderTray(); toast('Microphone access stopped','Firefox','check'); }
+  else if(act==='notif-clear'){ notifs=[]; $('#bellDot').hidden=true; renderTab(); }
+  else if(act==='cal-prev'){ calM--; if(calM<0){calM=11;calY--;} renderTab(); }
+  else if(act==='cal-next'){ calM++; if(calM>11){calM=0;calY++;} renderTab(); }
+  else if(act==='music-play'){ music.playing=!music.playing; updateMedia(); renderChips(); }
+  else if(act==='music-next'){ music.i=(music.i+1)%TRACKS.length; music.pos=0; updateMedia(); renderChips(); }
+  else if(act==='music-prev'){ music.i=(music.i+TRACKS.length-1)%TRACKS.length; music.pos=0; updateMedia(); renderChips(); }
+  else if(act==='fix') fixDoc(+arg);
+  else if(act==='fix-all') fixAll();
+  else if(act==='install') installItem(arg);
+  else if(act==='uninstall') uninstallItem(arg);
+  else if(act==='float') toggleFloat(+arg);
+  else if(act==='close') closeWin(+arg);
+  else if(act==='power-lock') goLock();
+  else if(act==='power-sleep') sleepNow();
+  else if(act==='power-restart') restart();
+  else if(act==='power-off') shutdown();
+  else if(act==='power-on') goBoot();
+  else if(act==='fs') toggleFs();
+  else if(act==='hint-close') $('#hint').hidden=true;
+  else if(act==='timer-cancel'){ S.timer=null; renderChips(); toast('Timer cancelled','','timer'); }
+  else if(act==='quiet-clear'){ const n=S.quiet; S.quiet=0; renderChips(); toast(n+' quiet notification'+(n===1?'':'s'),'Held by game mode — now dismissed','bell'); }
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.type!=='range') return;
+  const v=+t.value, act=t.dataset.act;
+  const row=t.closest('.srow'); const out=row?row.querySelector('output'):null;
+  if(out) out.textContent=v+'%';
+  if(act==='vol') setVol(v);
+  else if(act==='bright') setBright(v);
+  else if(act==='warmth'){ S.warmth=v; overlays(); }
+  else if(act==='bat-demo'){ S.bat=v; saverWarned=false; chargeNotified=false; renderTray(); check20(); }
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.type==='checkbox'){
+    if(t.dataset.act==='limit'){ S.limit=t.checked; chargeNotified=false; }
+    else if(t.dataset.act==='night-sched'){ S.nightSched=t.checked; }
+  }
+  if(t.type==='range'&&!$('#panel').hidden&&panelTab==='control') renderTab();
+});
+$('#q').addEventListener('input',doSearch);
+$('#q').addEventListener('keydown',e=>{
+  if(e.metaKey||(e.ctrlKey&&e.altKey)) return;
+  if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); if(results.length&&!$('#results').hidden) launch(sel); }
+  else if((e.key==='ArrowDown'||e.key==='ArrowUp')&&!$('#results').hidden&&results.length){
+    e.preventDefault(); e.stopPropagation();
+    sel=(sel+(e.key==='ArrowDown'?1:results.length-1))%results.length; renderResults();
+  }
+  else if(e.key==='Escape'){
+    e.stopPropagation();
+    if($('#q').value){ $('#q').value=''; doSearch(); } else closePanel();
+  }
+});
+$('#pw').addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
+$('#sleep').addEventListener('click',wake);
+document.addEventListener('keydown',e=>{
+  if(sleeping){ e.preventDefault(); wake(); return; }
+  if(!$('#off').hidden){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); goBoot(); } return; }
+  if(!$('#boot').hidden) return;
+  if(!$('#lock').hidden) return;
+  const tag=(e.target.tagName||'').toLowerCase();
+  const inField=tag==='input'||tag==='textarea'||e.target.isContentEditable;
+  const sup=e.metaKey||(e.ctrlKey&&e.altKey&&!(e.getModifierState&&e.getModifierState('AltGraph')));
+  if(e.key==='Meta'){ e.preventDefault(); if(!e.repeat){ metaHeld=true; metaUsed=false; } return; }
+  if(sup){
+    if(e.metaKey) metaUsed=true;
+    const k=e.key.toLowerCase(); let handled=true;
+    if(e.code==='Space'&&e.shiftKey){ if(focusId) toggleFloat(focusId); }
+    else if(e.code==='Space') togglePanel();
+    else if(k==='enter') openApp('terminal');
+    else if(k==='a') $('#apps').hidden=!$('#apps').hidden;
+    else if(k==='e') openApp('files');
+    else if(k==='b') openApp('firefox');
+    else if(k==='i') openApp('settings');
+    else if(k==='q'){ if(focusId) closeWin(focusId); }
+    else if(k==='f1') $('#keys').hidden=!$('#keys').hidden;
+    else if(k==='escape') $('#power').hidden=!$('#power').hidden;
+    else if(k==='h'&&e.shiftKey) toast('Offline Arch Wiki','Not part of this preview (~240 MB in the real OS)','book');
+    else if(k>='1'&&k<='4') setWs(+k);
+    else handled=false;
+    if(handled){ e.preventDefault(); e.stopPropagation(); }
+    return;
+  }
+  if(e.key==='Escape'){
+    if(!$('#micPop').hidden){ $('#micPop').hidden=true; e.preventDefault(); return; }
+    const ovs=['power','keys','apps'];
+    for(let i=0;i<ovs.length;i++){ const o=$('#'+ovs[i]); if(!o.hidden){ o.hidden=true; e.preventDefault(); return; } }
+    if(!$('#panel').hidden){ closePanel(); e.preventDefault(); }
+    return;
+  }
+  if(!$('#panel').hidden&&panelTab==='wall'&&$('#q').value===''&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter'].indexOf(e.key)>=0){
+    if(inField&&e.target.id!=='q') return;
+    e.preventDefault();
+    const n=ACCENTS.length;
+    if(e.key==='Enter'){ setAccent(ACCENTS[wallSel][1]); return; }
+    if(e.key==='ArrowLeft') wallSel=(wallSel+n-1)%n;
+    if(e.key==='ArrowRight') wallSel=(wallSel+1)%n;
+    if(e.key==='ArrowUp') wallSel=(wallSel+n-3)%n;
+    if(e.key==='ArrowDown') wallSel=(wallSel+3)%n;
+    renderTab();
+  }
+  if(!$('#panel').hidden&&!inField&&e.key.length===1&&!e.ctrlKey&&!e.altKey) $('#q').focus();
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='Meta'){ e.preventDefault(); if(metaHeld&&!metaUsed&&!$('#desktop').hidden&&!sleeping) togglePanel(); metaHeld=false; }
+});
+window.addEventListener('blur',()=>{ metaHeld=false; });
+window.addEventListener('resize',drawEdge);
+if(window.ResizeObserver){ new ResizeObserver(drawEdge).observe($('#island')); }
+$('#wallImg').addEventListener('load',applyAccent);
+(function init(){
+  const now=new Date(); calY=now.getFullYear(); calM=now.getMonth();
+  $('#searchIco').innerHTML=icon('search');
+  $('#lockRestart').innerHTML=icon('restart');
+  $('#lockOff').innerHTML=icon('power');
+  $('#offIco').innerHTML=icon('power');
+  $('#hintX').innerHTML=icon('x');
+  $$('[data-ico]').forEach(s=>{ s.innerHTML=icon(s.dataset.ico); });
+  $('#wsNav').innerHTML=[1,2,3,4].map(n=>'<button data-act="ws" data-arg="'+n+'" title="Workspace '+n+' (SUPER+'+n+')">'+n+'</button>').join('');
+  $('#appsGrid').innerHTML=Object.keys(APPS).map(id=>'<button data-act="app" data-arg="'+id+'">'+icon(APPS[id].ic)+APPS[id].name+'</button>').join('')+'<button data-act="setup-games">'+icon('game')+'Set up games</button>';
+  applyAccent(); overlays(); renderTray(); renderChips(); renderTab(); renderWs(); tickClock();
+  goBoot();
+})();
+</script>
+</body>
+<script>
+'use strict';
+/* ============================================================
+   VYNTARIS PREVIEW — EXPANSION PACK (unofficial, fan-made)
+   Paste this whole <script> block right before </body>, AFTER
+   the existing preview script. It upgrades the simulator in
+   place: real-ish browser, file manager + Quick Look, editor,
+   a Store that installs working mini-apps, wiki, phone, backup,
+   snapshots with the update-guard rollback demo, welcome wizard,
+   and localStorage persistence. Everything runs locally.
+   ============================================================ */
+
+/* ---------- tiny helpers ---------- */
+const LS = {
+  get(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const LSKEYS=['vx.fs','vx.apps','vx.theme','vx.welcomed','vx.notes','vx.events','vx.snaps','vx.backup'];
+const xWin=id=>getWin(id);
+const xBody=id=>{ const w=xWin(id); return w?w.body:null; };
+const xRefresh=id=>{ const w=xWin(id); if(w&&w.refresh) w.refresh(); };
+const vsize=n=> n.type==='dir' ? (n.children.length+' items') : (n.kind==='audio'?'3.8 MB':n.kind==='pdf'?'184 KB':(n.content.length/1024).toFixed(1)+' KB');
+const vdate=n=> new Date(n.mtime).toLocaleDateString('en',{day:'numeric',month:'short'});
+
+/* ---------- virtual file system ---------- */
+let vuid=1;
+function vdir(name,children){ return {uid:vuid++,name:name,type:'dir',children:children||[],mtime:Date.now()-86400000*3}; }
+function vfile(name,kind,content){ return {uid:vuid++,name:name,type:'file',kind:kind,content:content,mtime:Date.now()-86400000*Math.floor(Math.random()*9)}; }
+const SVG1='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240"><rect width="400" height="240" fill="#11111b"/><circle cx="310" cy="70" r="90" fill="#cba6f7" opacity=".8"/><circle cx="120" cy="190" r="120" fill="#89b4fa" opacity=".5"/><circle cx="230" cy="150" r="60" fill="#f5c2e7" opacity=".6"/></svg>';
+const SVG2='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240"><rect width="400" height="240" fill="#1e1e2e"/><path d="M0 190 Q100 120 200 170 T400 150 V240 H0 Z" fill="#cba6f7"/><path d="M0 210 Q120 150 240 195 T400 185 V240 H0 Z" fill="#89b4fa" opacity=".7"/></svg>';
+function vseed(){
+  return vdir('Home',[
+    vdir('Desktop',[]),
+    vdir('Documents',[
+      vfile('Welcome.txt','text','Welcome to Vyntaris (preview).\n\nThis whole desktop runs in one HTML file.\nEverything you create here is saved in your browser via localStorage.\n\nTry:\n  - the Store: install Calculator, Notes, Snake...\n  - Firefox: browse sites that allow embedding\n  - Settings > Backups: simulate a bad update and watch it undo itself\n\nThe real OS: https://vyntarisos.com'),
+      vfile('notes.md','text','# Notes\n\n- pacman -Syu takes a snapshot first\n- SUPER+F1 lists every shortcut\n- tap SUPER and just start typing'),
+      vfile('Manual.pdf','pdf','')
+    ]),
+    vdir('Downloads',[]),
+    vdir('Music',[vfile('Aurora Lines.mp3','audio','0'),vfile('Mauve Horizon.mp3','audio','1'),vfile('Snapshot (Pre-Upgrade Mix).mp3','audio','2')]),
+    vdir('Pictures',[vfile('wallpaper.svg','image',SVG1),vfile('accent-wave.svg','image',SVG2)]),
+    vdir('Videos',[])
+  ]);
+}
+let vx=LS.get('vx.fs')||vseed();
+(function fixUids(n){ if(n.uid>=vuid)vuid=n.uid+1; (n.children||[]).forEach(fixUids); })(vx);
+const vsave=()=>LS.set('vx.fs',vx);
+function vresolve(path){ let n=vx; for(const p of path){ if(!n.children)return null; n=n.children.find(c=>c.name===p&&c.type==='dir'); if(!n)return null; } return n; }
+function vfind(uid,n){ n=n||vx; if(n.uid===uid)return n; for(const c of (n.children||[])){ const r=vfind(uid,c); if(r)return r; } return null; }
+function vparent(uid,n){ n=n||vx; for(const c of (n.children||[])){ if(c.uid===uid)return n; const r=vparent(uid,c); if(r)return r; } return null; }
+function vpathOf(uid,n,path){ n=n||vx; path=path||[]; if(n.uid===uid)return path; for(const c of (n.children||[])){ const r=vpathOf(uid,c,path.concat(c.type==='dir'?[c.name]:[])); if(r)return r; } return null; }
+function vadd(dirUid,node){ const d=vfind(dirUid); if(d&&d.type==='dir'){ d.children.push(node); d.mtime=Date.now(); vsave(); return true; } return false; }
+function vdel(uid){ const p=vparent(uid); if(!p)return; p.children=p.children.filter(c=>c.uid!==uid); vsave(); }
+function vunique(dir,name){ let base=name,ext='',i=1; const dot=name.lastIndexOf('.'); if(dot>0){base=name.slice(0,dot);ext=name.slice(dot);} let nm=name; while(dir.children.some(c=>c.name===nm)){ nm=base+' ('+(i++)+')'+ext; } return nm; }
+const refreshFiles=()=>wins.forEach(w=>{ if(w.app==='files'&&w.refresh)w.refresh(); });
+
+/* ---------- CSS for the expansion ---------- */
+(function(){
+  const st=document.createElement('style');
+  st.textContent=''+
+  '.xrow{display:flex;align-items:center;gap:8px}.xgrow{flex:1;min-width:0}'+
+  '.xinput{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--rim);background:var(--tile);color:var(--text);font-size:12px;outline:0;min-width:0}.xinput:focus{border-color:var(--ink)}'+
+  '.xarea{width:100%;min-height:120px;padding:10px 12px;border-radius:12px;border:1px solid var(--rim);background:var(--tile);color:var(--text);font:400 13px/1.5 var(--mono);outline:0;resize:vertical}.xarea:focus{border-color:var(--ink)}'+
+  '.xctx{position:fixed;z-index:95;min-width:170px;background:var(--base);border:1px solid var(--rim);border-radius:12px;padding:5px;box-shadow:0 14px 40px rgba(0,0,0,.45);display:grid;gap:2px}'+
+  '.xctx button{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:12px;color:var(--text);text-align:left}.xctx button:hover{background:var(--tile-hover)}.xctx .ic{color:var(--ink)}'+
+  '.fm-wrap{display:flex;height:100%;min-height:0}.fm-side{width:150px;flex:none;border-right:1px solid var(--line);padding:10px 8px;display:grid;gap:2px;align-content:start;overflow-y:auto}'+
+  '.fm-side button{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:10px;font-size:12px;color:var(--muted);text-align:left}.fm-side button:hover{background:var(--tile-hover);color:var(--text)}.fm-side button.on{background:var(--accent);color:var(--on-accent)}.fm-side .ic{width:14px;height:14px}'+
+  '.fm-main{flex:1;min-width:0;display:flex;flex-direction:column}.fm-tool{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);flex:none}'+
+  '.fm-tool button{display:grid;place-items:center;width:26px;height:26px;border-radius:13px;color:var(--muted)}.fm-tool button:hover{background:var(--tile-hover);color:var(--text)}'+
+  '.fm-body{flex:1;min-height:0;overflow-y:auto;padding:10px}'+
+  '.fm-crumb{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap}.fm-crumb button{color:var(--ink);font-weight:600}.fm-crumb button:hover{text-decoration:underline}'+
+  '.fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}'+
+  '.fm-item{display:grid;justify-items:center;gap:6px;padding:12px 6px;border-radius:12px;border:1px solid transparent;font-size:11px;text-align:center;color:var(--subtext);word-break:break-word}'+
+  '.fm-item:hover{background:var(--tile)}.fm-item.sel{background:var(--tile-hover);border-color:var(--accent)}.fm-item .ic{width:30px;height:30px;color:var(--ink)}'+
+  '.fm-thumb{width:44px;height:30px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}.fm-thumb svg{width:100%;height:100%}'+
+  '.fm-list{display:grid;gap:2px}.fm-row{display:grid;grid-template-columns:1fr 80px 70px;gap:10px;align-items:center;padding:6px 10px;border-radius:10px;font-size:12px;color:var(--subtext);border:1px solid transparent}'+
+  '.fm-row:hover{background:var(--tile)}.fm-row.sel{background:var(--tile-hover);border-color:var(--accent)}.fm-row .nm{display:flex;gap:8px;align-items:center;min-width:0}.fm-row .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fm-row .ic{color:var(--ink)}.fm-row small{color:var(--quiet);font-family:var(--mono);font-size:10px;text-align:right}'+
+  '.fm-empty{color:var(--quiet);font-size:12px;padding:20px;text-align:center}'+
+  '.fm-store{margin-top:10px;font-size:10px;color:var(--quiet)}.fm-store .bar{height:4px;border-radius:2px;background:var(--surface);overflow:hidden;margin-top:4px}.fm-store .bar i{display:block;height:100%;width:16%;background:var(--accent)}'+
+  '.ql-card{width:min(560px,calc(100vw - 24px));max-height:82vh;overflow:auto}.ql-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ql-head b{font-size:14px}.ql-head small{color:var(--muted);font-size:11px}'+
+  '.ql-img{border-radius:12px;overflow:hidden;border:1px solid var(--rim)}.ql-img svg{width:100%;height:auto;display:block}'+
+  '.ql-text{font:400 12px/1.6 var(--mono);white-space:pre-wrap;background:var(--crust);border-radius:12px;padding:14px;max-height:50vh;overflow:auto}'+
+  '.ql-pdf{background:#fff;color:#333;border-radius:8px;padding:26px;font-size:12px;line-height:1.6}.ql-pdf h4{margin:0 0 8px;font-size:15px;color:#111}'+
+  '.ed-wrap{display:flex;flex-direction:column;height:100%}.ed-tool{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px}.ed-dot{width:7px;height:7px;border-radius:50%;background:var(--warm)}'+
+  '.ed-area{flex:1;width:100%;border:0;outline:0;resize:none;background:var(--crust);color:var(--text);font:400 13px/1.6 var(--mono);padding:14px 16px}'+
+  '.br-wrap{display:flex;flex-direction:column;height:100%;background:var(--crust)}'+
+  '.br-tabs{display:flex;gap:4px;padding:6px 8px 0;align-items:center}.br-tab{display:flex;align-items:center;gap:6px;max-width:160px;padding:5px 10px;border-radius:10px 10px 0 0;font-size:11px;color:var(--muted);background:var(--tile)}.br-tab.on{background:var(--mantle);color:var(--text)}.br-tab span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.br-tab i{display:grid;place-items:center;width:14px;height:14px;border-radius:7px;font-style:normal}.br-tab i:hover{background:var(--tile-hover)}'+
+  '.br-bar{display:flex;gap:6px;align-items:center;padding:7px 8px;background:var(--mantle)}.br-bar button{display:grid;place-items:center;width:26px;height:26px;border-radius:13px;color:var(--muted);flex:none}.br-bar button:hover{background:var(--tile-hover);color:var(--text)}.br-bar button:disabled{opacity:.35}'+
+  '.br-addr{flex:1;height:28px;padding:0 12px;border-radius:14px;border:1px solid var(--rim);background:var(--tile);color:var(--text);font-size:12px;outline:0;min-width:0}.br-addr:focus{border-color:var(--ink)}'+
+  '.br-marks{display:flex;gap:4px;padding:4px 8px;background:var(--mantle);border-bottom:1px solid var(--line);flex-wrap:wrap}.br-marks button{font-size:10px;color:var(--muted);padding:3px 8px;border-radius:9px}.br-marks button:hover{background:var(--tile-hover);color:var(--text)}'+
+  '.br-prog{height:2px;background:transparent;flex:none}.br-prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}'+
+  '.br-frame{flex:1;border:0;width:100%;background:#fff;min-height:0}'+
+  '.br-note{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;display:flex;gap:10px;align-items:center;background:var(--base);border:1px solid var(--rim);border-radius:12px;padding:10px 14px;font-size:12px;box-shadow:0 12px 34px rgba(0,0,0,.4);max-width:90%}'+
+  '.calc-wrap{padding:14px;display:grid;gap:10px;max-width:280px;margin:0 auto}.calc-disp{background:var(--crust);border-radius:12px;padding:14px;text-align:right;font:300 28px var(--mono);overflow:hidden;white-space:nowrap}'+
+  '.calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.calc-grid button{height:44px;border-radius:12px;background:var(--tile);font:500 15px var(--mono)}.calc-grid button:hover{background:var(--tile-hover)}.calc-grid button.op{color:var(--ink)}.calc-grid button.eq{background:var(--accent);color:var(--on-accent)}'+
+  '.nt-wrap{display:flex;height:100%}.nt-list{width:160px;flex:none;border-right:1px solid var(--line);overflow-y:auto;padding:8px;display:grid;gap:4px;align-content:start}'+
+  '.nt-list button{padding:8px 10px;border-radius:10px;font-size:12px;text-align:left;color:var(--subtext)}.nt-list button:hover{background:var(--tile)}.nt-list button.on{background:var(--accent);color:var(--on-accent)}.nt-list small{display:block;font-size:10px;opacity:.7}'+
+  '.nt-edit{flex:1;display:flex;flex-direction:column;min-width:0}.nt-edit input{border:0;outline:0;background:none;color:var(--text);font:600 15px var(--font);padding:12px 14px 4px}.nt-edit textarea{flex:1;border:0;outline:0;resize:none;background:none;color:var(--text);font:400 13px/1.6 var(--font);padding:6px 14px 14px}'+
+  '.sm-wrap{padding:14px;display:grid;gap:12px}.sm-bars{display:flex;gap:2px;align-items:flex-end;height:56px}.sm-bars i{flex:1;background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;opacity:.85}'+
+  '.sm-proc{display:grid;grid-template-columns:1fr 60px 60px 60px;gap:8px;font-size:11px;padding:5px 8px;border-radius:8px;align-items:center}.sm-proc:hover{background:var(--tile)}.sm-proc small{font-family:var(--mono);color:var(--muted);text-align:right}.sm-proc button{font-size:10px;color:var(--red)}'+
+  '.wx-card{padding:18px;display:grid;gap:12px;justify-items:center}.wx-now{font:300 46px var(--mono)}.wx-days{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.wx-day{background:var(--tile);border-radius:12px;padding:10px 12px;text-align:center;font-size:11px}.wx-day b{display:block;font:500 15px var(--mono);margin-top:4px}'+
+  '.ev-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 14px 10px}.ev-grid button{position:relative;height:38px;border-radius:10px;background:var(--tile);font:400 12px var(--mono)}.ev-grid button:hover{background:var(--tile-hover)}.ev-grid button.today{background:var(--accent);color:var(--on-accent)}.ev-dot{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--ink)}.ev-grid button.today .ev-dot{background:var(--on-accent)}'+
+  '.mu-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--line);font-size:12px}.mu-row:hover{background:var(--tile)}.mu-row.on{color:var(--ink)}.mu-row small{color:var(--muted)}.mu-row button{display:grid;place-items:center;width:26px;height:26px;border-radius:13px;color:var(--ink)}.mu-row button:hover{background:var(--tile-hover)}'+
+  '.sn-wrap{display:grid;justify-items:center;gap:10px;padding:16px}.sn-wrap canvas{border-radius:12px;border:1px solid var(--rim);outline:0;background:var(--crust)}'+
+  '.wk-wrap{display:flex;height:100%}.wk-side{width:170px;flex:none;border-right:1px solid var(--line);padding:10px 8px;overflow-y:auto;display:grid;gap:2px;align-content:start}.wk-side button{padding:7px 10px;border-radius:10px;font-size:12px;text-align:left;color:var(--muted)}.wk-side button:hover{background:var(--tile-hover);color:var(--text)}.wk-side button.on{background:var(--accent);color:var(--on-accent)}'+
+  '.wk-doc{flex:1;overflow-y:auto;padding:16px 20px;font-size:13px;line-height:1.6}.wk-doc h3{margin:0 0 8px;font-size:17px}.wk-doc h4{margin:14px 0 4px;font-size:13px;color:var(--ink)}.wk-doc p{margin:6px 0;color:var(--subtext)}.wk-doc code{font-family:var(--mono);font-size:.9em;background:var(--mantle);border:1px solid var(--line);border-radius:5px;padding:1px 5px}.wk-doc ul{margin:6px 0;padding-left:18px;color:var(--subtext);list-style:disc}'+
+  '.st2-cats{display:flex;gap:4px;flex-wrap:wrap;padding:10px 16px 0}.st2-cats button{height:24px;padding:0 11px;border-radius:12px;font-size:11px;font-weight:600;color:var(--muted)}.st2-cats button:hover{background:var(--tile-hover)}.st2-cats button.on{background:var(--accent);color:var(--on-accent)}'+
+  '.wz-sec{display:grid;gap:8px;margin-top:14px}.wz-sec h4{margin:0;font-size:11px;color:var(--ink);letter-spacing:.03em}'+
+  '.snap-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line)}.snap-row .ic{color:var(--ink)}.snap-row small{color:var(--muted)}'+
+  '.boot-fail{display:grid;gap:8px;font:400 13px var(--mono);color:var(--red);text-align:left;min-width:280px}.boot-fail .ok{color:var(--green)}'+
+  '';
+  document.head.appendChild(st);
+})();
+
+/* ---------- generic modal / context menu / quick look ---------- */
+function xModal(title,html,okLabel,cb){
+  let m=$('#xmodal');
+  if(!m){ m=document.createElement('div'); m.id='xmodal'; m.className='overlay'; document.body.appendChild(m); }
+  m.innerHTML='<div class="ocard" style="width:min(430px,calc(100vw - 24px))"><h3>'+esc(title)+'</h3><div class="xm-body">'+html+'</div><div class="xrow" style="margin-top:14px;justify-content:flex-end"><button class="btn sm" data-act="xcancel">Cancel</button><button class="btn sm primary" data-act="xok">'+esc(okLabel||'OK')+'</button></div></div>';
+  m.hidden=false;
+  m._cb=cb;
+  const inp=m.querySelector('input,textarea'); if(inp)setTimeout(()=>inp.focus(),40);
+}
+function xCloseModal(){ const m=$('#xmodal'); if(m){m.hidden=true;m._cb=null;} }
+function xCtx(x,y,items){
+  let c=$('#xctx');
+  if(!c){ c=document.createElement('div'); c.id='xctx'; c.className='xctx'; document.body.appendChild(c); }
+  c.innerHTML=items.map(i=>'<button data-act="'+i.act+'" data-arg="'+esc(i.arg||'')+'">'+icon(i.ic)+esc(i.label)+'</button>').join('');
+  c.hidden=false;
+  const r=c.getBoundingClientRect();
+  c.style.left=Math.min(x,window.innerWidth-r.width-8)+'px';
+  c.style.top=Math.min(y,window.innerHeight-r.height-8)+'px';
+}
+const xHideCtx=()=>{ const c=$('#xctx'); if(c)c.hidden=true; };
+function xQL(node){
+  let q=$('#ql');
+  if(!q){ q=document.createElement('div'); q.id='ql'; q.className='overlay'; document.body.appendChild(q); }
+  let body='';
+  if(node.kind==='image') body='<div class="ql-img">'+node.content+'</div>';
+  else if(node.kind==='text') body='<div class="ql-text">'+esc(node.content)+'</div>';
+  else if(node.kind==='audio') body='<div class="cardline">'+icon('music')+'<span class="xgrow"><b>'+esc(node.name)+'</b><small>Plays in the island player</small></span><button class="btn sm primary" data-act="qlplay" data-arg="'+esc(node.content)+'">Play</button></div>';
+  else if(node.kind==='pdf') body='<div class="ql-pdf"><h4>Vyntaris Manual</h4><p>Page 1 of 3 — this is a stand-in document so Quick Look has something to show.</p><p>On the real OS, Space in the file manager previews pictures, PDFs, video, songs and Office files without opening an app.</p></div>';
+  q.innerHTML='<div class="ocard ql-card"><div class="ql-head">'+icon(node.kind==='image'?'sparkle':node.kind==='audio'?'music':node.kind==='pdf'?'book':'files')+'<span class="xgrow"><b>'+esc(node.name)+'</b><small>'+vsize(node)+' · '+vdate(node)+' · Quick Look</small></span><button class="btn sm" data-act="qlclose">Close</button></div>'+body+'<p class="fine">Space or Esc closes Quick Look.</p></div>';
+  q.hidden=false;
+}
+const xHideQL=()=>{ const q=$('#ql'); if(q)q.hidden=true; };
+
+/* ---------- FILES ---------- */
+const FM_PLACES=['Home','Desktop','Documents','Downloads','Music','Pictures','Videos'];
+function fmIcon(n){ return n.type==='dir'?'files':n.kind==='image'?'sparkle':n.kind==='audio'?'music':n.kind==='pdf'?'book':'files'; }
+function buildFiles(body,w){
+  w.fm={path:[],sel:null,view:'grid',q:''};
+  body.innerHTML='<div class="fm-wrap"><div class="fm-side"></div><div class="fm-main">'+
+    '<div class="fm-tool"><button data-act="fmup" data-arg="'+w.id+'" title="Up">'+icon('chevL')+'</button>'+
+    '<button data-act="fmnewdir" data-arg="'+w.id+'" title="New folder">'+icon('files')+'</button>'+
+    '<button data-act="fmnewfile" data-arg="'+w.id+'" title="New text file">'+icon('terminal')+'</button>'+
+    '<button data-act="fmview" data-arg="'+w.id+'" title="Grid / list">'+icon('expand')+'</button>'+
+    '<input class="xinput fmq" data-act="fmq" data-arg="'+w.id+'" placeholder="Search this folder…" style="flex:1">'+
+    '</div><div class="fm-body"></div></div></div>';
+  w.refresh=()=>fmRender(w);
+  body.addEventListener('dblclick',e=>{
+    const it=e.target.closest('[data-uid]'); if(!it)return;
+    fmOpen(w,vfind(+it.dataset.uid));
+  });
+  body.addEventListener('contextmenu',e=>{
+    const it=e.target.closest('[data-uid]');
+    e.preventDefault();
+    if(!it){ xCtx(e.clientX,e.clientY,[{act:'fmnewdir',arg:String(w.id),ic:'files',label:'New folder'},{act:'fmnewfile',arg:String(w.id),ic:'terminal',label:'New text file'}]); return; }
+    const uid=it.dataset.uid; w.fm.sel=+uid; fmRender(w);
+    xCtx(e.clientX,e.clientY,[
+      {act:'fmopen',arg:w.id+'|'+uid,ic:'terminal',label:'Open'},
+      {act:'fmql',arg:uid,ic:'search',label:'Quick Look (Space)'},
+      {act:'fmrename',arg:uid,ic:'sparkle',label:'Rename'},
+      {act:'fmdelete',arg:uid,ic:'x',label:'Delete'}
+    ]);
+  });
+  fmRender(w);
+}
+function fmRender(w){
+  const dir=vresolve(w.fm.path)||vx;
+  const side=w.body.querySelector('.fm-side');
+  side.innerHTML=FM_PLACES.map(p=>'<button class="'+((w.fm.path[0]||'Home')===p?'on':'')+'" data-act="fmplace" data-arg="'+w.id+'|'+p+'">'+icon('files')+p+'</button>').join('')+
+    '<div class="fm-store">Btrfs · zstd<div class="bar"><i></i></div>4.7 GB of 30 GB</div>';
+  const body=w.body.querySelector('.fm-body');
+  const crumbs=['Home'].concat(w.fm.path);
+  let h='<div class="fm-crumb">'+crumbs.map((c,i)=>'<button data-act="fmnav" data-arg="'+w.id+'|'+w.fm.path.slice(0,i).join('/')+'">'+esc(c)+'</button>'+(i<crumbs.length-1?'<span>/</span>':'')).join('')+'</div>';
+  let items=dir.children.slice().sort((a,b)=>(a.type===b.type?a.name.localeCompare(b.name):a.type==='dir'?-1:1));
+  if(w.fm.q) items=items.filter(n=>n.name.toLowerCase().includes(w.fm.q.toLowerCase()));
+  w.fm.visible=items.map(n=>n.uid);
+  if(!items.length) h+='<div class="fm-empty">Empty folder. Right-click for new items.</div>';
+  else if(w.fm.view==='grid'){
+    h+='<div class="fm-grid">'+items.map(n=>'<button class="fm-item'+(w.fm.sel===n.uid?' sel':'')+'" data-uid="'+n.uid+'" data-act="fmsel" data-arg="'+w.id+'|'+n.uid+'">'+
+      (n.kind==='image'?'<span class="fm-thumb">'+n.content+'</span>':icon(fmIcon(n)))+'<span>'+esc(n.name)+'</span></button>').join('')+'</div>';
+  } else {
+    h+='<div class="fm-list">'+items.map(n=>'<button class="fm-row'+(w.fm.sel===n.uid?' sel':'')+'" data-uid="'+n.uid+'" data-act="fmsel" data-arg="'+w.id+'|'+n.uid+'"><span class="nm">'+icon(fmIcon(n))+'<span>'+esc(n.name)+'</span></span><small>'+vsize(n)+'</small><small>'+vdate(n)+'</small></button>').join('')+'</div>';
+  }
+  body.innerHTML=h;
+}
+function fmOpen(w,n){
+  if(!n)return;
+  if(n.type==='dir'){ w.fm.path=vpathOf(n.uid)||[]; w.fm.sel=null; fmRender(w); return; }
+  if(n.kind==='text'){ openApp('editor'); const ew=wins.find(x=>x.app==='editor'&&x.ws===S.ws); if(ew&&ew.edLoad)ew.edLoad(n); return; }
+  xQL(n);
+}
+function fmNew(w,kind){
+  const dir=vresolve(w.fm.path)||vx;
+  xModal(kind==='dir'?'New folder':'New text file','<input class="xinput" style="width:100%" placeholder="Name" value="'+(kind==='dir'?'New Folder':'Untitled.txt')+'">','Create',card=>{
+    let name=card.querySelector('input').value.trim(); if(!name)return;
+    name=vunique(dir,name);
+    vadd(dir.uid, kind==='dir'?vdir(name,[]):vfile(name,'text',''));
+    fmRender(w); toast(name+' created',w.fm.path.join('/')||'Home','files');
+  });
+}
+
+/* ---------- EDITOR ---------- */
+function buildEditor(body,w){
+  w.ed={node:null,dirty:false};
+  body.innerHTML='<div class="ed-wrap"><div class="ed-tool">'+icon('terminal')+'<span class="xgrow ed-name">No file</span><span class="ed-dot" hidden></span><button class="btn sm primary" data-act="edsave" data-arg="'+w.id+'">Save</button></div><textarea class="ed-area" data-act="ededit" data-arg="'+w.id+'" placeholder="Open a text file from Files, or just type here…" spellcheck="false"></textarea></div>';
+  w.edLoad=n=>{ w.ed.node=n; w.ed.dirty=false; body.querySelector('.ed-name').textContent=n.name; body.querySelector('.ed-area').value=n.content; body.querySelector('.ed-dot').hidden=true; };
+  body.querySelector('.ed-area').addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){ e.preventDefault(); e.stopPropagation(); edSave(w); }
+  });
+  w.refresh=()=>{};
+}
+function edSave(w){
+  const txt=w.body.querySelector('.ed-area').value;
+  if(!w.ed.node){
+    const docs=vresolve(['Documents']);
+    const name=vunique(docs,'Untitled.txt');
+    w.ed.node=vfile(name,'text',txt); vadd(docs.uid,w.ed.node);
+    w.body.querySelector('.ed-name').textContent=name;
+  } else { w.ed.node.content=txt; w.ed.node.mtime=Date.now(); }
+  w.ed.dirty=false; w.body.querySelector('.ed-dot').hidden=true;
+  vsave(); refreshFiles(); toast('Saved',w.ed.node.name,'check');
+}
+
+/* ---------- BROWSER ---------- */
+const BR_MARKS=[['Start','vyntaris://start'],['example.com','https://example.com'],['OpenStreetMap','https://www.openstreetmap.org/export/embed.html?bbox=-0.135%2C51.49%2C-0.09%2C51.52&layer=mapnik'],['Wikipedia','https://en.wikipedia.org/wiki/Linux'],['vyntarisos.com','https://vyntarisos.com']];
+function brInner(css,body){
+  return '<!doctype html><html><head><meta charset="utf-8"><style>'+
+    'body{margin:0;font:14px/1.55 system-ui,sans-serif;background:#1e1e2e;color:#cdd6f4;display:grid;place-items:center;min-height:100vh}'+
+    '.wrap{width:min(620px,92vw);padding:30px 0}h1{font-size:26px;margin:0 0 4px}p{color:#a6adc8;margin:4px 0 18px}'+
+    'input{width:100%;height:40px;border-radius:20px;border:1px solid rgba(205,214,244,.2);background:rgba(205,214,244,.06);color:#cdd6f4;padding:0 18px;font-size:14px;outline:0;box-sizing:border-box}'+
+    'input:focus{border-color:#cba6f7}.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:18px}'+
+    'button{cursor:pointer;border:1px solid rgba(205,214,244,.14);background:rgba(205,214,244,.05);color:#cdd6f4;border-radius:12px;padding:12px;font-size:12px;font-weight:600}'+
+    'button:hover{background:rgba(205,214,244,.1)}.res{text-align:left;display:grid;gap:2px;padding:12px 14px;margin-top:8px;width:100%}.res b{color:#cba6f7;font-size:14px}.res small{color:#a6adc8;font-weight:400}'+
+    '.fine{font-size:11px;color:#9399b2;margin-top:18px}'+css+'</style></head><body><div class="wrap">'+body+'</div>'+
+    '<scr'+'ipt>document.addEventListener("click",function(e){var b=e.target.closest("[data-u]");if(b)parent.postMessage({t:"vnav",u:b.dataset.u},"*");var x=e.target.closest("[data-ext]");if(x)parent.postMessage({t:"vext",u:x.dataset.ext},"*");var d=e.target.closest("[data-dl]");if(d)parent.postMessage({t:"vdl"},"*");});'+
+    'document.addEventListener("submit",function(e){e.preventDefault();var q=e.target.querySelector("input").value;parent.postMessage({t:"vsearch",q:q},"*");});<\/script></body></html>';
+}
+function brStart(){
+  return brInner('','<h1>Vyntaris Start</h1><p>Search or pick a site. Sites that refuse embedding open in a real tab instead.</p>'+
+    '<form><input name="q" placeholder="Search the web (simulated) or type a URL…" autofocus></form>'+
+    '<div class="links">'+BR_MARKS.slice(1).map(m=>'<button data-u="'+m[1]+'">'+m[0]+'</button>').join('')+
+    '<button data-dl="1">Download sample.txt</button></div>'+
+    '<p class="fine">This start page is part of the preview. Big sites (Google, YouTube…) block iframes for security — the browser will offer to open them in a real tab.</p>');
+}
+const BR_INDEX=[
+  {t:'Example Domain',u:'https://example.com',s:'A tiny, embeddable page reserved for documentation and examples.'},
+  {t:'OpenStreetMap',u:'https://www.openstreetmap.org/export/embed.html?bbox=-0.135%2C51.49%2C-0.09%2C51.52&layer=mapnik',s:'The free wiki world map — this embed view loads right here.'},
+  {t:'Linux — Wikipedia',u:'https://en.wikipedia.org/wiki/Linux',s:'The free encyclopedia article on Linux. Wikipedia may refuse embedding; use the external button.'},
+  {t:'Vyntaris — Linux, polished and fast',u:'https://vyntarisos.com',s:'The official site of the OS this preview is based on.'},
+  {t:'Arch Wiki',u:'https://wiki.archlinux.org',s:'The documentation that applies to everything below the Vyntaris desktop.'},
+  {t:'Hyprland',u:'https://hyprland.org',s:'The dynamic tiling Wayland compositor Vyntaris uses.'}
+];
+function brSearch(q){
+  const words=q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits=BR_INDEX.filter(r=>words.some(w=>(r.t+' '+r.s).toLowerCase().includes(w)));
+  const list=(hits.length?hits:BR_INDEX);
+  return brInner('','<h1>Results for “'+esc(q)+'”</h1><p>Simulated search — a curated index, not a real engine.</p>'+
+    list.map(r=>'<button class="res" data-u="'+r.u+'"><b>'+esc(r.t)+'</b><small>'+esc(r.s)+'</small><small style="color:#9399b2">'+esc(r.u)+'</small></button>').join('')+
+    '<div class="links">'+list.map(r=>'<button data-ext="'+r.u+'">Open '+esc(r.t.split(' ')[0])+' in a real tab ↗</button>').join('')+'</div>');
+}
+function buildBrowser(body,w){
+  w.br={tabs:[{url:'vyntaris://start',hist:['vyntaris://start'],hi:0}],ti:0,loaded:true,timer:null};
+  body.innerHTML='<div class="br-wrap" style="position:relative">'+
+    '<div class="br-tabs"></div>'+
+    '<div class="br-bar"><button data-act="bback" data-arg="'+w.id+'" title="Back">'+icon('chevL')+'</button>'+
+    '<button data-act="bfwd" data-arg="'+w.id+'" title="Forward">'+icon('chevR')+'</button>'+
+    '<button data-act="brel" data-arg="'+w.id+'" title="Reload">'+icon('restart')+'</button>'+
+    '<button data-act="bhome" data-arg="'+w.id+'" title="Start">'+icon('files')+'</button>'+
+    '<input class="br-addr" data-arg="'+w.id+'" placeholder="Type a URL or search…" spellcheck="false">'+
+    '<button data-act="bext" data-arg="'+w.id+'" title="Open in a real browser tab">↗</button></div>'+
+    '<div class="br-marks">'+BR_MARKS.map(m=>'<button data-act="bgo" data-arg="'+w.id+'|'+m[1]+'">'+m[0]+'</button>').join('')+'</div>'+
+    '<div class="br-prog"><i></i></div>'+
+    '<iframe class="br-frame" title="Preview browser" referrerpolicy="no-referrer"></iframe>'+
+    '<div class="br-note" hidden><span>This site may refuse to be embedded (X-Frame-Options).</span><button class="btn sm primary" data-act="bext" data-arg="'+w.id+'">Open in real tab ↗</button><button class="btn sm" data-act="bdismiss" data-arg="'+w.id+'">Dismiss</button></div>'+
+    '</div>';
+  w.br.iframe=body.querySelector('.br-frame');
+  w.br.addr=body.querySelector('.br-addr');
+  w.br.addr.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.stopPropagation(); brGo(w,brParse(w.br.addr.value)); }
+    if(e.key==='Escape') e.stopPropagation();
+  });
+  w.br.iframe.addEventListener('load',()=>{ w.br.loaded=true; clearTimeout(w.br.timer); const n=body.querySelector('.br-note'); if(n)n.hidden=true; const p=body.querySelector('.br-prog i'); if(p)p.style.width='0'; });
+  w.cleanup=()=>clearTimeout(w.br.timer);
+  w.refresh=()=>{};
+  brNav(w,'vyntaris://start',false);
+}
+function brParse(v){
+  v=v.trim(); if(!v)return 'vyntaris://start';
+  if(/^vyntaris:\/\//i.test(v))return v;
+  if(/^https?:\/\//i.test(v))return v;
+  if(!/\s/.test(v)&&/^[\w-]+(\.[\w-]+)+/.test(v))return 'https://'+v;
+  return 'vyntaris://search?q='+encodeURIComponent(v);
+}
+function brGo(w,url){ brNav(w,url,true); }
+function brNav(w,url,addHist){
+  const t=w.br.tabs[w.br.ti];
+  if(addHist){ t.hist=t.hist.slice(0,t.hi+1); t.hist.push(url); t.hi=t.hist.length-1; }
+  t.url=url;
+  w.br.addr.value=url;
+  w.br.loaded=false;
+  const prog=w.body.querySelector('.br-prog i'); prog.style.width='70%';
+  const note=w.body.querySelector('.br-note'); note.hidden=true;
+  clearTimeout(w.br.timer);
+  if(url==='vyntaris://start'){ w.br.iframe.srcdoc=brStart(); w.br.loaded=true; prog.style.width='0'; }
+  else if(url.startsWith('vyntaris://search')){ const q=decodeURIComponent((url.split('q=')[1]||'')); w.br.iframe.srcdoc=brSearch(q); w.br.loaded=true; prog.style.width='0'; }
+  else {
+    w.br.iframe.removeAttribute('srcdoc');
+    w.br.iframe.src=url;
+    w.br.timer=setTimeout(()=>{ if(!w.br.loaded){ note.hidden=false; prog.style.width='0'; } },6500);
+  }
+  brRender(w);
+}
+function brRender(w){
+  const tabs=w.body.querySelector('.br-tabs');
+  tabs.innerHTML=w.br.tabs.map((t,i)=>{
+    let title='New tab';
+    if(t.url==='vyntaris://start')title='Start';
+    else if(t.url.startsWith('vyntaris://search'))title='Search';
+    else { try{ title=new URL(t.url).hostname; }catch(e){ title=t.url; } }
+    return '<button class="br-tab'+(i===w.br.ti?' on':'')+'" data-act="btab" data-arg="'+w.id+'|'+i+'"><span>'+esc(title)+'</span>'+(w.br.tabs.length>1?'<i data-act="bclose" data-arg="'+w.id+'|'+i+'">×</i>':'')+'</button>';
+  }).join('')+'<button class="br-tab" data-act="bnew" data-arg="'+w.id+'" title="New tab">+</button>';
+  const t=w.br.tabs[w.br.ti];
+  w.body.querySelector('[data-act="bback"]').disabled=t.hi<=0;
+  w.body.querySelector('[data-act="bfwd"]').disabled=t.hi>=t.hist.length-1;
+}
+window.addEventListener('message',e=>{
+  const d=e.data||{};
+  wins.forEach(w=>{
+    if(w.app!=='firefox'||!w.br||e.source!==w.br.iframe.contentWindow)return;
+    if(d.t==='vnav')brGo(w,brParse(d.u));
+    else if(d.t==='vsearch')brGo(w,'vyntaris://search?q='+encodeURIComponent(d.q||''));
+    else if(d.t==='vext')window.open(d.u,'_blank','noopener');
+    else if(d.t==='vdl'){
+      const dl=vresolve(['Downloads']);
+      const name=vunique(dl,'sample.txt');
+      vadd(dl.uid,vfile(name,'text','Downloaded from the preview browser.\n'+new Date().toString()));
+      refreshFiles(); toast('Downloaded '+name,'Saved to Downloads','files');
+    }
+  });
+});
+
+/* ---------- CALCULATOR ---------- */
+function buildCalc(body,w){
+  w.calc={acc:null,op:null,cur:'0',fresh:true};
+  const keys=['C','neg','pct','div','7','8','9','mul','4','5','6','sub','1','2','3','add','0','dot','back','eq'];
+  const lbl={C:'C',neg:'±',pct:'%',div:'÷',mul:'×',sub:'−',add:'+',dot:'.',back:'⌫',eq:'='};
+  body.innerHTML='<div class="calc-wrap"><div class="calc-disp">0</div><div class="calc-grid">'+
+    keys.map(k=>'<button class="'+(k==='eq'?'eq':['div','mul','sub','add','C','neg','pct','back'].includes(k)?'op':'')+'" data-act="calc" data-arg="'+w.id+'|'+k+'">'+(lbl[k]||k)+'</button>').join('')+'</div></div>';
+  w.refresh=()=>{ body.querySelector('.calc-disp').textContent=w.calc.cur; };
+}
+function calcCompute(a,op,b){
+  let r=op==='add'?a+b:op==='sub'?a-b:op==='mul'?a*b:b===0?NaN:a/b;
+  if(!isFinite(r))return null;
+  return Math.round(r*1e10)/1e10;
+}
+function calcKey(w,k){
+  const c=w.calc;
+  if(/^[0-9]$/.test(k)){ c.cur=c.fresh?k:(c.cur==='0'?k:c.cur+k); c.fresh=false; if(c.cur.length>14)c.cur=c.cur.slice(0,14); }
+  else if(k==='dot'){ if(c.fresh){c.cur='0.';c.fresh=false;} else if(!c.cur.includes('.'))c.cur+='.'; }
+  else if(k==='C'){ c.acc=null;c.op=null;c.cur='0';c.fresh=true; }
+  else if(k==='back'){ c.cur=c.cur.slice(0,-1)||'0'; }
+  else if(k==='neg'){ if(c.cur!=='0')c.cur=c.cur.startsWith('-')?c.cur.slice(1):'-'+c.cur; }
+  else if(k==='pct'){ c.cur=String(parseFloat(c.cur)/100); }
+  else if(['add','sub','mul','div'].includes(k)){
+    if(c.op&&!c.fresh){ const r=calcCompute(c.acc,c.op,parseFloat(c.cur)); if(r===null){c.cur='Error';c.acc=null;c.op=null;c.fresh=true;w.refresh();return;} c.acc=r; }
+    else if(c.acc===null)c.acc=parseFloat(c.cur);
+    c.op=k;c.fresh=true;c.cur=String(c.acc);
+  }
+  else if(k==='eq'&&c.op){ const r=calcCompute(c.acc,c.op,parseFloat(c.cur)); c.cur=r===null?'Error':String(r); c.acc=null;c.op=null;c.fresh=true; }
+  w.refresh();
+}
+
+/* ---------- NOTES ---------- */
+let notesStore=LS.get('vx.notes')||[{id:1,t:'First note',b:'Notes autosave to localStorage.\nEverything stays on this machine.',ts:Date.now()}];
+function buildNotes(body,w){
+  w.nt={sel:notesStore.length?notesStore[0].id:null};
+  body.innerHTML='<div class="nt-wrap"><div class="nt-list"></div><div class="nt-edit"><input class="nt-t" data-act="noteedit" data-arg="'+w.id+'" placeholder="Title"><textarea class="nt-b" data-act="noteedit" data-arg="'+w.id+'" placeholder="Start typing…" spellcheck="false"></textarea></div></div>';
+  w.refresh=()=>{
+    const list=body.querySelector('.nt-list');
+    list.innerHTML='<button data-act="notenew" data-arg="'+w.id+'" style="color:var(--ink)">+ New note</button>'+
+      notesStore.map(n=>'<button class="'+(n.id===w.nt.sel?'on':'')+'" data-act="notesel" data-arg="'+w.id+'|'+n.id+'">'+esc(n.t||'Untitled')+'<small>'+new Date(n.ts).toLocaleDateString('en',{day:'numeric',month:'short'})+'</small></button>').join('')+
+      (w.nt.sel?'<button data-act="notedel" data-arg="'+w.id+'" style="color:var(--red)">Delete note</button>':'');
+  };
+  w.ntLoad=()=>{ const n=notesStore.find(x=>x.id===w.nt.sel); body.querySelector('.nt-t').value=n?n.t:''; body.querySelector('.nt-b').value=n?n.b:''; };
+  w.refresh(); w.ntLoad();
+}
+
+/* ---------- WEATHER ---------- */
+function buildWeather(body,w){
+  w.wx={city:'Belgrade'};
+  w.refresh=()=>{
+    let seed=0; for(const ch of w.wx.city)seed=(seed*31+ch.charCodeAt(0))>>>0;
+    const base=5+seed%24, conds=['Sunny','Cloudy','Light rain','Clear','Windy'];
+    const days=['Mon','Tue','Wed','Thu','Fri'];
+    body.innerHTML='<div class="wx-card"><div class="xrow"><input class="xinput wx-city" value="'+esc(w.wx.city)+'" placeholder="City"><button class="btn sm primary" data-act="wxset" data-arg="'+w.id+'">Show</button></div>'+
+      '<div class="wx-now">'+base+'°</div><div style="color:var(--muted)">'+conds[seed%5]+' · '+esc(w.wx.city)+'</div>'+
+      '<div class="wx-days">'+days.map((d,i)=>'<div class="wx-day">'+d+'<b>'+(base+((seed>>(i+1))%7)-3)+'°</b></div>').join('')+'</div>'+
+      '<p class="fine">Simulated forecast — deterministic demo data, not a live service.</p></div>';
+    const inp=body.querySelector('.wx-city');
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.stopPropagation();w.wx.city=inp.value.trim()||'Belgrade';w.refresh();} });
+  };
+  w.refresh();
+}
+
+/* ---------- SYSTEM MONITOR ---------- */
+function buildSysmon(body,w){
+  w.sm={cpu:Array(32).fill(8),procs:[['Hyprland',2.1,180],['quickshell',1.4,96],['firefox',6.3,420],['pipewire',0.4,24],['vyntaris-shell',0.9,60],['update-guard',0.1,8]]};
+  body.innerHTML='<div class="sm-wrap"><div class="xrow"><span class="sect">CPU</span><span class="xgrow"></span><span class="sm-cpu" style="font-family:var(--mono);font-size:12px"></span></div><div class="sm-bars">'+w.sm.cpu.map(()=>'<i></i>').join('')+'</div>'+
+    '<div class="xrow"><span class="sect">MEMORY</span><span class="xgrow"></span><span class="sm-mem" style="font-family:var(--mono);font-size:12px"></span></div>'+
+    '<div class="sm-procs"></div><p class="fine">Simulated telemetry. Ending a process here only removes its row.</p></div>';
+  w.refresh=()=>{
+    body.querySelector('.sm-procs').innerHTML='<div class="sm-proc" style="color:var(--quiet)"><span>Process</span><small>CPU %</small><small>MB</small><small></small></div>'+
+      w.sm.procs.map((p,i)=>'<div class="sm-proc"><span>'+esc(p[0])+'</span><small>'+p[1].toFixed(1)+'</small><small>'+p[2]+'</small><button data-act="smkill" data-arg="'+w.id+'|'+i+'">End</button></div>').join('');
+  };
+  const iv=setInterval(()=>{
+    const last=w.sm.cpu[w.sm.cpu.length-1];
+    w.sm.cpu.push(clamp(last+Math.random()*14-7,2,60)); w.sm.cpu.shift();
+    const bars=body.querySelectorAll('.sm-bars i');
+    w.sm.cpu.forEach((v,i)=>{ if(bars[i])bars[i].style.height=(v/60*100)+'%'; });
+    body.querySelector('.sm-cpu').textContent=w.sm.cpu[w.sm.cpu.length-1].toFixed(1)+' %';
+    body.querySelector('.sm-mem').textContent=(519+Math.round(Math.random()*20-10))+' MB of 4096';
+    w.sm.procs.forEach(p=>{ p[1]=clamp(p[1]+Math.random()*1.2-0.6,0.1,30); });
+    w.refresh();
+  },1000);
+  w.cleanup=()=>clearInterval(iv);
+  w.refresh();
+}
+
+/* ---------- CALENDAR ---------- */
+let evStore=LS.get('vx.events')||{};
+function buildCalendar(body,w){
+  const now=new Date();
+  w.ev={y:now.getFullYear(),m:now.getMonth()};
+  w.refresh=()=>{
+    const first=(new Date(w.ev.y,w.ev.m,1).getDay()+6)%7;
+    const days=new Date(w.ev.y,w.ev.m+1,0).getDate();
+    const month=new Date(w.ev.y,w.ev.m,1).toLocaleString('en',{month:'long'})+' '+w.ev.y;
+    let h='<div class="calhead" style="padding:12px 14px"><button data-act="evprev" data-arg="'+w.id+'">'+icon('chevL')+'</button><span>'+month+'</span><button data-act="evnext" data-arg="'+w.id+'">'+icon('chevR')+'</button></div>';
+    h+='<div class="ev-grid">'+['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>'<span style="text-align:center;font-size:10px;color:var(--quiet)">'+d+'</span>').join('');
+    for(let i=0;i<first;i++)h+='<span></span>';
+    for(let d=1;d<=days;d++){
+      const key=w.ev.y+'-'+pad(w.ev.m+1)+'-'+pad(d);
+      const today=d===now.getDate()&&w.ev.m===now.getMonth()&&w.ev.y===now.getFullYear();
+      h+='<button class="'+(today?'today':'')+'" data-act="evday" data-arg="'+w.id+'|'+key+'">'+d+((evStore[key]&&evStore[key].length)?'<span class="ev-dot"></span>':'')+'</button>';
+    }
+    h+='</div><p class="fine" style="padding:0 14px 14px">Click a day to add an event. Events persist locally.</p>';
+    body.innerHTML=h;
+  };
+  w.refresh();
+}
+
+/* ---------- MUSIC ---------- */
+function buildMusic(body,w){
+  body.innerHTML='<div class="mu-rows"></div><div style="padding:14px 16px"><div class="mprog"><i class="mu-prog"></i></div><div class="mtime"><span class="mu-pos">0:00</span><span class="mu-dur"></span></div>'+
+    '<div class="mctl" style="margin-top:10px"><button data-act="music-prev">'+icon('prev')+'</button><button class="big" data-act="music-play">'+icon('play')+'</button><button data-act="music-next">'+icon('next')+'</button></div></div>';
+  w.refresh=()=>{
+    body.querySelector('.mu-rows').innerHTML=TRACKS.map((t,i)=>'<div class="mu-row'+(i===music.i?' on':'')+'"><button data-act="mutrack" data-arg="'+i+'">'+icon(i===music.i&&music.playing?'pause':'play')+'</button><span class="xgrow"><b>'+esc(t.t)+'</b><small>'+esc(t.a)+'</small></span><small style="font-family:var(--mono)">'+fmt(t.d)+'</small></div>').join('');
+  };
+  const iv=setInterval(()=>{
+    const t=TRACKS[music.i];
+    const p=body.querySelector('.mu-prog'); if(p)p.style.width=(music.pos/t.d*100)+'%';
+    const pos=body.querySelector('.mu-pos'); if(pos)pos.textContent=fmt(music.pos);
+    const dur=body.querySelector('.mu-dur'); if(dur)dur.textContent=fmt(t.d);
+    const big=body.querySelector('[data-act="music-play"]'); if(big)big.innerHTML=icon(music.playing?'pause':'play');
+    w.refresh();
+  },1000);
+  w.cleanup=()=>clearInterval(iv);
+  w.refresh();
+}
+
+/* ---------- SNAKE ---------- */
+function buildSnake(body,w){
+  body.innerHTML='<div class="sn-wrap"><div class="xrow" style="width:320px"><span class="sect">SNAKE</span><span class="xgrow"></span><span class="sn-score" style="font-family:var(--mono);font-size:12px">0</span><button class="btn sm" data-act="snrestart" data-arg="'+w.id+'">Restart</button></div><canvas width="320" height="320" tabindex="0"></canvas><p class="fine">Arrow keys or WASD. Opening a game turns on game mode — watch the island.</p></div>';
+  const cv=body.querySelector('canvas'), ctx=cv.getContext('2d');
+  const N=20,C=16;
+  let snake,dir,nextDir,food,score,over;
+  function reset(){ snake=[{x:8,y:10},{x:7,y:10},{x:6,y:10}]; dir={x:1,y:0}; nextDir=dir; score=0; over=false; placeFood(); body.querySelector('.sn-score').textContent='0'; }
+  function placeFood(){ do{ food={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}; }while(snake.some(s=>s.x===food.x&&s.y===food.y)); }
+  function css(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+  function draw(){
+    ctx.fillStyle=css('--crust'); ctx.fillRect(0,0,320,320);
+    ctx.fillStyle=css('--warm'); ctx.fillRect(food.x*C+3,food.y*C+3,C-6,C-6);
+    ctx.fillStyle=css('--accent');
+    snake.forEach((s,i)=>{ ctx.globalAlpha=i===0?1:0.75; ctx.fillRect(s.x*C+1,s.y*C+1,C-2,C-2); });
+    ctx.globalAlpha=1;
+    if(over){ ctx.fillStyle=css('--text'); ctx.font='600 15px sans-serif'; ctx.textAlign='center'; ctx.fillText('Game over — Enter to restart',160,160); }
+  }
+  function step(){
+    if(over)return;
+    dir=nextDir;
+    const h={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if(h.x<0||h.y<0||h.x>=N||h.y>=N||snake.some(s=>s.x===h.x&&s.y===h.y)){ over=true; draw(); return; }
+    snake.unshift(h);
+    if(h.x===food.x&&h.y===food.y){ score++; body.querySelector('.sn-score').textContent=String(score); placeFood(); }
+    else snake.pop();
+    draw();
+  }
+  reset(); draw();
+  const iv=setInterval(step,110);
+  cv.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();
+    const map={arrowup:{x:0,y:-1},w:{x:0,y:-1},arrowdown:{x:0,y:1},s:{x:0,y:1},arrowleft:{x:-1,y:0},a:{x:-1,y:0},arrowright:{x:1,y:0},d:{x:1,y:0}};
+    if(map[k]){ e.preventDefault(); e.stopPropagation(); const d=map[k]; if(d.x!==-dir.x||d.y!==-dir.y)nextDir=d; }
+    else if(e.key==='Enter'&&over){ e.preventDefault(); e.stopPropagation(); reset(); draw(); }
+  });
+  setTimeout(()=>cv.focus(),60);
+  w.snReset=()=>{ reset(); draw(); cv.focus(); };
+  w.cleanup=()=>{ clearInterval(iv); if(S.game)setGame(false); };
+  if(!S.game)setGame(true);
+  w.refresh=()=>{};
+}
+
+/* ---------- ARCH WIKI (preview edition) ---------- */
+const WIKI_ARTICLES=[
+ {id:'install',t:'Installing',html:'<h3>Installing</h3><p>You need a 64-bit UEFI PC, 30 GB of disk, 4 GB of memory, the internet and a 4 GB USB stick. Installing takes 15–30 minutes.</p><h4>Steps</h4><ul><li>Download the ISO (~1.6 GB) and verify SHA256 + GPG.</li><li>Write the stick (Rufus in DD mode, <code>dd</code>, or Ventoy).</li><li>Turn Secure Boot off, boot the stick in UEFI mode.</li><li>Answer the installer: internet, language, user, disk. Keep Btrfs.</li></ul><p>Whole-disk installs erase the disk; Free space dual-boots beside Windows.</p>'},
+ {id:'first',t:'First minutes',html:'<h3>The first minutes</h3><ul><li>Tap <code>SUPER</code> for the control center; start typing to search.</li><li><code>SUPER+A</code> every app, <code>SUPER+ENTER</code> terminal, <code>SUPER+E</code> files, <code>SUPER+B</code> browser.</li><li><code>SUPER+Q</code> closes a window, <code>SUPER+I</code> Settings, <code>SUPER+F1</code> all shortcuts.</li><li>Plain words work: <code>volume 40</code>, <code>dark mode</code>, <code>timer 5m</code>.</li></ul>'},
+ {id:'updates',t:'Updates & rollback',html:'<h3>Updates & rollback</h3><p>Before every upgrade, Timeshift saves a copy of the system. Your files are never part of it.</p><p>If an update stops Vyntaris from starting, it gets three tries, then the old system comes back by itself — <code>update-guard</code>. You can also pick <b>Undo the update</b> in the start menu (hold Space at boot).</p><p>Try it: Settings → Backups → <b>Simulate a bad update</b>.</p>'},
+ {id:'games',t:'Games',html:'<h3>Games</h3><p>Tap SUPER and type <code>set up games</code>: Steam with Proton, Lutris, GameMode and MangoHud.</p><p>Game mode starts by itself with a fullscreen game: quiet notifications, FPS in the island. In this preview, opening Snake does the same.</p>'},
+ {id:'nvidia',t:'NVIDIA',html:'<h3>NVIDIA</h3><p>The driver installs by itself. On a two-GPU laptop the NVIDIA card sleeps until a game or <code>prime-run</code> asks for it, keeping about 370 MB of memory free. A yellow dot in the bar shows when it is awake.</p><p>If an HDMI monitor stays dark, enable <b>Start its driver with the system</b> in Settings → Drivers.</p>'},
+ {id:'privacy',t:'Privacy',html:'<h3>Privacy</h3><p>No accounts, no telemetry, no analytics. When an app uses your microphone, camera or screen, a dot lights up in the bar; its panel names the app and can stop it.</p><p>Firefox ships with uBlock Origin, Bitwarden and Privacy Badger. There is an nftables firewall and only signed packages install.</p>'},
+ {id:'keys',t:'Shortcuts',html:'<h3>Shortcuts</h3><ul><li><code>SUPER</code> — control center / search</li><li><code>SUPER+SHIFT+SPACE</code> — float or tile a window</li><li><code>SUPER+SHIFT+H</code> — this offline wiki</li><li><code>SUPER+ESC</code> — power menu</li><li><code>SUPER+1…4</code> — workspaces</li></ul>'}
+];
+function buildWiki(body,w){
+  w.wk={art:'install',q:''};
+  body.innerHTML='<div style="padding:8px 10px;border-bottom:1px solid var(--line)"><input class="xinput wk-q" data-act="wkq" data-arg="'+w.id+'" placeholder="Search the wiki…" style="width:100%"></div><div class="wk-wrap" style="height:calc(100% - 47px)"><div class="wk-side"></div><div class="wk-doc"></div></div>';
+  w.refresh=()=>{
+    const arts=WIKI_ARTICLES.filter(a=>!w.wk.q||(a.t+' '+a.html).toLowerCase().includes(w.wk.q.toLowerCase()));
+    body.querySelector('.wk-side').innerHTML=arts.map(a=>'<button class="'+(a.id===w.wk.art?'on':'')+'" data-act="wkart" data-arg="'+w.id+'|'+a.id+'">'+esc(a.t)+'</button>').join('')||'<p class="fine" style="padding:8px">No matches.</p>';
+    const a=WIKI_ARTICLES.find(x=>x.id===w.wk.art)||WIKI_ARTICLES[0];
+    body.querySelector('.wk-doc').innerHTML=a.html+'<p class="fine">Condensed from the official Vyntaris wiki · <a href="https://vyntarisos.com/wiki/" target="_blank" rel="noopener">vyntarisos.com/wiki</a></p>';
+  };
+  w.refresh();
+}
+
+/* ---------- PHONE ---------- */
+function buildPhone(body,w){
+  body.innerHTML='<div class="setsec"><div class="cardline">'+icon('phone')+'<span class="xgrow"><b>Pixel 8</b><small>Paired via KDE Connect (simulated)</small></span><span class="chip">'+icon('check')+'Paired</span></div>'+
+    '<div class="srow"><div class="lab"><span>Phone battery</span><output class="ph-out">82%</output></div><input type="range" min="1" max="100" value="82" data-act="phbat" data-arg="'+w.id+'"></div>'+
+    '<div class="xrow" style="flex-wrap:wrap"><button class="btn sm" data-act="phping" data-arg="'+w.id+'">Ping phone</button><button class="btn sm" data-act="phnotif" data-arg="'+w.id+'">Send a notification</button></div>'+
+    '<h4>SHARED CLIPBOARD</h4><textarea class="xarea ph-clip" placeholder="Type something, then send it to the phone…"></textarea>'+
+    '<button class="btn sm primary" data-act="phclip" data-arg="'+w.id+'">Send clipboard</button>'+
+    '<p class="fine">On the real OS you also get phone notifications on the desktop, files both ways, and the phone as a touchpad.</p></div>';
+  w.refresh=()=>{};
+}
+
+/* ---------- BACKUP ---------- */
+let bkState=LS.get('vx.backup')||{folders:['Documents','Pictures'],sched:'startup',last:null};
+function buildBackup(body,w){
+  w.refresh=()=>{
+    const dirs=vx.children.filter(c=>c.type==='dir');
+    body.innerHTML='<div class="setsec"><div class="cardline">'+icon('files')+'<span class="xgrow"><b>Google Drive</b><small>'+(bkState.last?('Last backup '+new Date(bkState.last).toLocaleString('en')):'No backup yet')+' · simulated</small></span><button class="btn sm primary" data-act="backupnow">Back up now</button></div>'+
+      '<h4>FOLDERS</h4>'+dirs.map(d=>'<label class="srow2"><input type="checkbox" data-act="bkfolder" data-arg="'+esc(d.name)+'"'+(bkState.folders.includes(d.name)?' checked':'')+'><span class="xgrow">'+esc(d.name)+'</span></label>').join('')+
+      '<h4>SCHEDULE</h4><select class="xinput" data-act="bksched" style="width:100%"><option value="startup"'+(bkState.sched==='startup'?' selected':'')+'>At every start</option><option value="shutdown"'+(bkState.sched==='shutdown'?' selected':'')+'>At shutdown</option><option value="manual"'+(bkState.sched==='manual'?' selected':'')+'>Only when I ask</option></select>'+
+      '<p class="fine">This is a simulation — no real Google account is contacted. On the real OS, changed files keep their last copy in an Older folder.</p></div>';
+  };
+  w.refresh();
+}
+
+/* ---------- STORE 2 ---------- */
+const CATALOG=[
+ {id:'calculator',name:'Calculator',cat:'Utilities',ic:'sparkle',desc:'A simple calculator',long:'Immediate-execution calculator. Installs as a working mini-app.'},
+ {id:'notes',name:'Notes',cat:'Utilities',ic:'files',desc:'Autosaving notes',long:'A two-pane notes app. Everything persists in localStorage.'},
+ {id:'weather',name:'Weather',cat:'Utilities',ic:'sun',desc:'Simulated forecast',long:'Deterministic demo forecast for any city. Clearly labelled as simulated.'},
+ {id:'sysmon',name:'System Monitor',cat:'System',ic:'settings',desc:'Live resources & processes',long:'Simulated CPU/memory graphs and a process list you can prune.'},
+ {id:'calendar',name:'Calendar',cat:'Utilities',ic:'timer',desc:'Month view with events',long:'Click a day to add events; they persist locally.'},
+ {id:'music',name:'Music',cat:'Media',ic:'music',desc:'The island player, full size',long:'A playlist view of the same player that lives in the island.'},
+ {id:'snake',name:'Snake',cat:'Games',ic:'game',desc:'A tiny game — turns on game mode',long:'Arrow keys or WASD. Opening it enables game mode, just like the real OS.'}
+];
+const AUR=[
+ {id:'paru',name:'paru (AUR)',cat:'System',ic:'terminal',desc:'AUR helper — simulated',aur:true,long:'Anyone can upload to the AUR and Arch does not check the recipes. Read each one before building. Simulated here.'},
+ {id:'themes',name:'vyntaris-themes-extra (AUR)',cat:'Media',ic:'sparkle',desc:'Extra accent presets — simulated',aur:true,long:'Community accent presets. Simulated — nothing real is installed.'}
+];
+const BUILDERS={calculator:buildCalc,notes:buildNotes,weather:buildWeather,sysmon:buildSysmon,calendar:buildCalendar,music:buildMusic,snake:buildSnake};
+let aurOn=false;
+function regApp(id){
+  const c=CATALOG.concat(AUR).find(x=>x.id===id); if(!c)return;
+  APPS[id]=BUILDERS[id]?{name:c.name,ic:c.ic,build:BUILDERS[id]}:{name:c.name,ic:c.ic,stub:'This AUR package is simulated — nothing real is installed.'};
+  installed[id]=true;
+  rebuildGrid(); syncLauncher(); refreshStores();
+}
+function unregApp(id){
+  delete APPS[id]; delete installed[id];
+  wins.filter(w=>w.app===id).forEach(w=>closeWin(w.id));
+  rebuildGrid(); syncLauncher(); refreshStores();
+}
+function buildStore2(body,w){
+  w.st={cat:'All',q:''};
+  body.innerHTML='<div style="padding:10px 16px 0"><input class="xinput st-q" data-act="stq" data-arg="'+w.id+'" placeholder="Search apps…" style="width:100%"></div><div class="st2-cats"></div><div class="st2-rows" style="margin-top:8px"></div>'+
+    '<label class="srow2" style="padding:10px 16px"><input type="checkbox" data-act="aur"'+(aurOn?' checked':'')+'><span class="xgrow">Show AUR packages <small>Anyone can upload there — the Store warns before building.</small></span></label>'+
+    '<p class="note">Installs add real, working mini-apps to this simulator (not real Arch packages). System components: Files, Firefox, Text Editor, Arch Wiki, Backup, Phone.</p>';
+  w.refresh=()=>{
+    const cats=['All','Utilities','Media','Games','System'];
+    body.querySelector('.st2-cats').innerHTML=cats.map(c=>'<button class="'+(w.st.cat===c?'on':'')+'" data-act="stcat" data-arg="'+w.id+'|'+c+'">'+c+'</button>').join('');
+    let list=CATALOG.concat(aurOn?AUR:[]);
+    if(w.st.cat!=='All')list=list.filter(c=>c.cat===w.st.cat);
+    if(w.st.q)list=list.filter(c=>(c.name+' '+c.desc).toLowerCase().includes(w.st.q.toLowerCase()));
+    body.querySelector('.st2-rows').innerHTML=list.map(c=>{
+      const inst=!!installed[c.id];
+      return '<div class="store-row">'+icon(c.ic)+'<span class="xgrow"><b>'+esc(c.name)+'</b><small>'+esc(c.desc)+(c.aur?' · AUR':'')+'</small></span>'+
+        '<button class="btn sm" data-act="stopen" data-arg="'+c.id+'">Details</button>'+
+        (inst?'<button class="btn sm" data-act="app" data-arg="'+c.id+'">Open</button><button class="btn sm" data-act="uninstall" data-arg="'+c.id+'">Remove</button>':'<button class="btn sm primary" data-act="install" data-arg="'+c.id+'">Install</button>')+'</div>';
+    }).join('')||'<p class="note">No matches.</p>';
+  };
+  w.refresh();
+}
+function rebuildGrid(){
+  $('#appsGrid').innerHTML=Object.keys(APPS).map(id=>'<button data-act="app" data-arg="'+id+'">'+icon(APPS[id].ic)+esc(APPS[id].name)+'</button>').join('')+'<button data-act="setup-games">'+icon('game')+'Set up games</button>';
+}
+function syncLauncher(){
+  for(let i=INDEX.length-1;i>=0;i--)if(INDEX[i].dyn)INDEX.splice(i,1);
+  Object.keys(APPS).forEach(id=>{
+    if(!INDEX.some(x=>x.name===APPS[id].name))INDEX.push({name:APPS[id].name,keys:'app installed',ic:APPS[id].ic,desc:'',dyn:true,run:()=>openApp(id)});
+  });
+  const wiki=INDEX.find(x=>x.name==='Offline Arch Wiki'); if(wiki){wiki.desc='SUPER+SHIFT+H · preview edition';wiki.run=()=>openApp('wiki');}
+  const bk=INDEX.find(x=>x.name==='Backup'); if(bk){bk.desc='Simulated Google Drive backup';bk.run=()=>openApp('backup');}
+  const f=INDEX.find(x=>x.name==='Files'); if(f)f.desc='SUPER+E · with Quick Look';
+  const fx=INDEX.find(x=>x.name==='Firefox'); if(fx)fx.desc='SUPER+B · real browsing where sites allow it';
+}
+
+/* ---------- SNAPSHOTS / UPDATE-GUARD ---------- */
+let snaps=LS.get('vx.snaps')||[{t:'Before upgrade',d:'today'},{t:'Before upgrade',d:'4 days ago'},{t:'Installed',d:'3 weeks ago'}];
+function snapTake(){ snaps.unshift({t:'Manual snapshot',d:'just now'}); snaps=snaps.slice(0,6); LS.set('vx.snaps',snaps); refreshSettings(); toast('Snapshot taken','System only — your files are never part of it','doctor'); }
+function snapUndo(){
+  xModal('Undo last update','<p style="font-size:13px;color:var(--subtext)">The system goes back to the previous snapshot and restarts. Your files are untouched.</p>','Undo & restart',()=>{
+    goBoot(); setTimeout(()=>toast('The system was rolled back','Files untouched','check'),2600);
+  });
+}
+function badUpdate(){
+  snaps.unshift({t:'Before upgrade',d:'just now'}); LS.set('vx.snaps',snaps);
+  const boot=$('#boot'); const orig=boot.innerHTML;
+  $('#desktop').hidden=true; $('#lock').hidden=true; $('#off').hidden=true; boot.hidden=false;
+  boot.innerHTML='<div class="boot-in"><div class="boot-fail"></div></div>';
+  const box=boot.querySelector('.boot-fail');
+  const lines=['Boot attempt 1/3 … failed','Boot attempt 2/3 … failed','Boot attempt 3/3 … failed','<span class="ok">update-guard: rolling back to the last snapshot…</span>','<span class="ok">Restored. Starting Vyntaris.</span>'];
+  const times=[200,1000,1800,2800,3800];
+  lines.forEach((l,i)=>setTimeout(()=>{ const d=document.createElement('div'); d.innerHTML=l; box.appendChild(d); },times[i]));
+  setTimeout(()=>{ boot.innerHTML=orig; goLock(); toast('The update undid itself','update-guard: 3 failed boots → automatic rollback','doctor'); },4800);
+}
+
+/* ---------- WELCOME WIZARD ---------- */
+function wzShow(){
+  let z=$('#wz');
+  if(!z){ z=document.createElement('div'); z.id='wz'; z.className='overlay'; document.body.appendChild(z); }
+  z.innerHTML='<div class="ocard" style="width:min(460px,calc(100vw - 24px))"><h3>Welcome to Vyntaris</h3><p style="font-size:13px;color:var(--subtext)">A short setup — just like the real first boot. Pick a look, then dive in.</p>'+
+    '<div class="wz-sec"><h4>LIGHT OR DARK</h4><div class="tiles">'+tile('dark',!S.light,S.light?'sun':'moon',S.light?'Light mode':'Dark mode','Applies everywhere')+'</div></div>'+
+    '<div class="wz-sec"><h4>ACCENT COLOUR</h4><div class="swatches">'+ACCENTS.map(a=>'<button class="swatch'+(a[1]===S.accent?' sel':'')+'" style="background:'+a[1]+'" data-act="accent" data-arg="'+a[1]+'">'+a[0]+'</button>').join('')+'</div></div>'+
+    '<div class="wz-sec"><label class="srow2"><input type="checkbox" class="wz-games"><span class="xgrow">Install the games extra <small>Snake — turns on game mode when you play</small></span></label></div>'+
+    '<div class="xrow" style="margin-top:16px;justify-content:flex-end"><button class="btn primary" data-act="wzdone">Start using Vyntaris</button></div></div>';
+  z.hidden=false;
+}
+
+/* ---------- OVERRIDES of the base preview ---------- */
+const xToast=toast; toast=function(t,b,ic){ if(t==='Offline Arch Wiki')return; xToast(t,b,ic); };
+const xLogin=login; login=function(){ xLogin(); if(!LS.get('vx.welcomed')&&!$('#desktop').hidden)wzShow(); };
+const xCloseWin=closeWin; closeWin=function(id){ const w=xWin(id); if(w&&w.cleanup)w.cleanup(); xCloseWin(id); };
+const xResetSession=resetSession; resetSession=function(){ wins.forEach(w=>{ if(w.cleanup)w.cleanup(); }); xResetSession(); };
+const xSetAccent=setAccent; setAccent=function(h){ xSetAccent(h); LS.set('vx.theme',{accent:S.accent,light:S.light}); };
+const xSetLight=setLight; setLight=function(v){ xSetLight(v); LS.set('vx.theme',{accent:S.accent,light:S.light}); };
+const xParse=parseCommand; parseCommand=function(v){
+  const r=xParse(v); if(r)return r; let m;
+  if((m=v.match(/^install\s+(.+)$/i))){ const q=m[1].toLowerCase(); const c=CATALOG.concat(AUR).find(x=>x.name.toLowerCase().includes(q)); if(c)return{name:'Install '+c.name,desc:'From the Store',ic:'store',run:()=>installItem(c.id)}; return null; }
+  if(/^(play\s+)?snake$/i.test(v))return{name:'Snake',desc:installed.snake?'Play':'Install it from the Store first',ic:'game',run:()=>installed.snake?openApp('snake'):openApp('store')};
+  if(/^wiki$/i.test(v))return{name:'Arch Wiki',desc:'Offline · preview edition',ic:'book',run:()=>openApp('wiki')};
+  if(/^backup$/i.test(v))return{name:'Backup',desc:'Simulated',ic:'files',run:()=>openApp('backup')};
+  if(/^phone$/i.test(v))return{name:'Phone',desc:'KDE Connect · simulated',ic:'phone',run:()=>openApp('phone')};
+  return null;
+};
+installItem=function(id){
+  const c=CATALOG.concat(AUR).find(x=>x.id===id); if(!c)return;
+  if(installed[id]){ toast(c.name+' is already installed','','info'); return; }
+  const doInstall=()=>startInstall(c.name,()=>{ regApp(id); LS.set('vx.apps',Object.keys(installed)); toast(c.name+' installed','Now in the launcher and SUPER+A','check'); });
+  if(c.aur){ xModal('AUR warning','<p style="font-size:13px;color:var(--subtext)">Anyone can upload to the AUR and Arch does not check the recipes. <b>'+esc(c.name)+'</b> has 12 votes and was updated 3 days ago. Read it before building.</p>','Build & install',doInstall); return; }
+  doInstall();
+};
+uninstallItem=function(id){ const c=CATALOG.concat(AUR).find(x=>x.id===id); unregApp(id); LS.set('vx.apps',Object.keys(installed)); toast((c?c.name:id)+' removed','','x'); };
+setupGames=function(){ if(installed.snake)openApp('snake'); else { installItem('snake'); toast('Installing Snake…','Open it from the launcher when ready','game'); } };
+const xSettings=settingsHTML;
+settingsHTML=function(){
+  let h='<div class="setsec"><input class="xinput set-q" placeholder="Search settings (Ctrl+F)…" style="width:100%"></div>';
+  h+=xSettings();
+  h+='<div class="setsec"><h4>BACKUPS &amp; SNAPSHOTS</h4>'+snaps.map(s=>'<div class="snap-row">'+icon('doctor')+'<span class="xgrow">'+esc(s.t)+'<small>'+esc(s.d)+'</small></span></div>').join('')+
+    '<div class="xrow" style="flex-wrap:wrap"><button class="btn sm" data-act="snap">Take snapshot</button><button class="btn sm" data-act="snapundo">Undo last update</button><button class="btn sm primary" data-act="snapbad">Simulate a bad update</button></div>'+
+    '<p class="fine">The bad-update demo fails three boots, then update-guard rolls back by itself — the signature Vyntaris feature.</p></div>';
+  h+='<div class="setsec"><h4>PREVIEW</h4><p class="fine">Files, notes, events, installed apps and theme persist in localStorage. Nothing leaves this page.</p><button class="btn sm" data-act="resetpreview">Reset the preview</button></div>';
+  return h;
+};
+
+/* ---------- NEW EVENTS ---------- */
+document.addEventListener('click',e=>{
+  if(e.target.id==='xmodal'){ xCloseModal(); return; }
+  if(e.target.id==='ql'){ xHideQL(); return; }
+  if(!e.target.closest('#xctx'))xHideCtx();
+  const b=e.target.closest('[data-act]'); if(!b)return;
+  const act=b.dataset.act, arg=b.dataset.arg||'';
+  const parts=arg.split('|'); const wid=+parts[0];
+  let w;
+  if(act==='xok'){ const m=$('#xmodal'); const cb=m&&m._cb; const card=m&&m.querySelector('.ocard'); xCloseModal(); if(cb)cb(card); return; }
+  if(act==='xcancel'){ xCloseModal(); return; }
+  if(act==='qlclose'){ xHideQL(); return; }
+  if(act==='qlplay'){ music.i=clamp(+arg,0,TRACKS.length-1); music.pos=0; music.playing=true; updateMedia(); renderChips(); return; }
+  if(act==='fmsel'){ w=xWin(wid); if(w){ w.fm.sel=+parts[1]; fmRender(w); } return; }
+  if(act==='fmplace'){ w=xWin(wid); if(w){ w.fm.path=parts[1]==='Home'?[]:[parts[1]]; w.fm.sel=null; fmRender(w); } return; }
+  if(act==='fmnav'){ w=xWin(wid); if(w){ w.fm.path=parts[1]?parts[1].split('/'):[]; w.fm.sel=null; fmRender(w); } return; }
+  if(act==='fmup'){ w=xWin(wid); if(w){ w.fm.path.pop(); w.fm.sel=null; fmRender(w); } return; }
+  if(act==='fmview'){ w=xWin(wid); if(w){ w.fm.view=w.fm.view==='grid'?'list':'grid'; fmRender(w); } return; }
+  if(act==='fmnewdir'){ fmNew(xWin(wid),'dir'); return; }
+  if(act==='fmnewfile'){ fmNew(xWin(wid),'file'); return; }
+  if(act==='fmopen'){ w=xWin(wid); if(w)fmOpen(w,vfind(+parts[1])); xHideCtx(); return; }
+  if(act==='fmql'){ xQL(vfind(+arg)); xHideCtx(); return; }
+  if(act==='fmrename'){ const n=vfind(+arg); xHideCtx(); if(!n)return; xModal('Rename','<input class="xinput" style="width:100%" value="'+esc(n.name)+'">','Rename',card=>{ const v=card.querySelector('input').value.trim(); if(v){n.name=v;vsave();refreshFiles();} }); return; }
+  if(act==='fmdelete'){ const n=vfind(+arg); xHideCtx(); if(!n)return; xModal('Delete '+n.name,'<p style="font-size:13px;color:var(--subtext)">This removes it from the virtual file system. There is no trash in the preview.</p>','Delete',()=>{ vdel(n.uid); refreshFiles(); toast(n.name+' deleted','','x'); }); return; }
+  if(act==='edsave'){ edSave(xWin(wid)); return; }
+  if(act==='bback'){ w=xWin(wid); if(w){ const t=w.br.tabs[w.br.ti]; if(t.hi>0){t.hi--;brNav(w,t.hist[t.hi],false);} } return; }
+  if(act==='bfwd'){ w=xWin(wid); if(w){ const t=w.br.tabs[w.br.ti]; if(t.hi<t.hist.length-1){t.hi++;brNav(w,t.hist[t.hi],false);} } return; }
+  if(act==='brel'){ w=xWin(wid); if(w)brNav(w,w.br.tabs[w.br.ti].url,false); return; }
+  if(act==='bhome'){ w=xWin(wid); if(w)brGo(w,'vyntaris://start'); return; }
+  if(act==='bext'){ w=xWin(wid); if(w){ const u=w.br.tabs[w.br.ti].url; if(!u.startsWith('vyntaris://'))window.open(u,'_blank','noopener'); } return; }
+  if(act==='bgo'){ w=xWin(wid); if(w)brGo(w,parts.slice(1).join('|')); return; }
+  if(act==='btab'){ w=xWin(wid); if(w){ w.br.ti=+parts[1]; brNav(w,w.br.tabs[w.br.ti].url,false); } return; }
+  if(act==='bnew'){ w=xWin(wid); if(w){ w.br.tabs.push({url:'vyntaris://start',hist:['vyntaris://start'],hi:0}); w.br.ti=w.br.tabs.length-1; brNav(w,'vyntaris://start',false); } return; }
+  if(act==='bclose'){ w=xWin(wid); if(w&&w.br.tabs.length>1){ w.br.tabs.splice(+parts[1],1); w.br.ti=Math.min(w.br.ti,w.br.tabs.length-1); brNav(w,w.br.tabs[w.br.ti].url,false); } return; }
+  if(act==='bdismiss'){ w=xWin(wid); if(w)w.body.querySelector('.br-note').hidden=true; return; }
+  if(act==='calc'){ calcKey(xWin(wid),parts[1]); return; }
+  if(act==='notesel'){ w=xWin(wid); if(w){ w.nt.sel=+parts[1]; w.refresh(); w.ntLoad(); } return; }
+  if(act==='notenew'){ w=xWin(wid); if(w){ const n={id:Date.now(),t:'New note',b:'',ts:Date.now()}; notesStore.unshift(n); LS.set('vx.notes',notesStore); w.nt.sel=n.id; w.refresh(); w.ntLoad(); } return; }
+  if(act==='notedel'){ w=xWin(wid); if(w){ notesStore=notesStore.filter(n=>n.id!==w.nt.sel); LS.set('vx.notes',notesStore); w.nt.sel=notesStore.length?notesStore[0].id:null; w.refresh(); w.ntLoad(); } return; }
+  if(act==='wxset'){ w=xWin(wid); if(w){ const i=w.body.querySelector('.wx-city'); w.wx.city=(i&&i.value.trim())||'Belgrade'; w.refresh(); } return; }
+  if(act==='smkill'){ w=xWin(wid); if(w){ const p=w.sm.procs.splice(+parts[1],1)[0]; w.refresh(); toast('Ended '+p[0],'Simulated — nothing real was killed','x'); } return; }
+  if(act==='evprev'){ w=xWin(wid); if(w){ w.ev.m--; if(w.ev.m<0){w.ev.m=11;w.ev.y--;} w.refresh(); } return; }
+  if(act==='evnext'){ w=xWin(wid); if(w){ w.ev.m++; if(w.ev.m>11){w.ev.m=0;w.ev.y++;} w.refresh(); } return; }
+  if(act==='evday'){ w=xWin(wid); if(w){ const key=parts[1]; const list=(evStore[key]||[]); xModal(key,(list.length?'<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;color:var(--subtext)">'+list.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<p style="font-size:12px;color:var(--muted)">No events yet.</p>')+'<input class="xinput" style="width:100%" placeholder="Add an event…">','Add',card=>{ const v=card.querySelector('input').value.trim(); if(v){ evStore[key]=(evStore[key]||[]).concat(v); LS.set('vx.events',evStore); w.refresh(); } }); } return; }
+  if(act==='mutrack'){ music.i=clamp(+arg,0,TRACKS.length-1); music.pos=0; music.playing=true; updateMedia(); renderChips(); wins.forEach(x=>{if(x.app==='music'&&x.refresh)x.refresh();}); return; }
+  if(act==='snrestart'){ w=xWin(wid); if(w&&w.snReset)w.snReset(); return; }
+  if(act==='wkart'){ w=xWin(wid); if(w){ w.wk.art=parts[1]; w.refresh(); } return; }
+  if(act==='phping'){ toast('Phone pinged','Pixel 8 (simulated)','phone'); return; }
+  if(act==='phnotif'){ toast('Phone notification','Pixel 8: Battery at 82%','phone'); return; }
+  if(act==='phclip'){ w=xWin(wid); const t=w&&w.body.querySelector('.ph-clip'); toast('Clipboard sent to phone',(t&&t.value)?t.value.slice(0,40):'(empty)','phone'); return; }
+  if(act==='backupnow'){ startInstall('Backup',()=>{ bkState.last=Date.now(); LS.set('vx.backup',bkState); refreshStores(); wins.forEach(x=>{if(x.app==='backup'&&x.refresh)x.refresh();}); toast('Backed up (simulated)','No real Google Drive is contacted','check'); }); return; }
+  if(act==='snap'){ snapTake(); return; }
+  if(act==='snapundo'){ snapUndo(); return; }
+  if(act==='snapbad'){ badUpdate(); return; }
+  if(act==='wzdone'){ const z=$('#wz'); const g=z&&z.querySelector('.wz-games'); if(g&&g.checked&&!installed.snake){ regApp('snake'); LS.set('vx.apps',Object.keys(installed)); } LS.set('vx.welcomed',1); if(z)z.hidden=true; toast('All set','This welcome shows once — reset it in Settings → Preview','check'); return; }
+  if(act==='resetpreview'){ xModal('Reset the preview','<p style="font-size:13px;color:var(--subtext)">Clears saved files, notes, events, installed apps and theme, then reloads.</p>','Reset',()=>{ LSKEYS.forEach(k=>LS.del(k)); location.reload(); }); return; }
+  if(act==='stopen'){ const c=CATALOG.concat(AUR).find(x=>x.id===arg); if(!c)return; const inst=!!installed[c.id]; xModal(c.name,'<p style="font-size:13px;color:var(--subtext)">'+esc(c.long)+'</p><p class="fine">'+esc(c.cat)+(c.aur?' · AUR':'')+'</p>',inst?'Open':'Install',()=>{ if(inst)openApp(c.id); else installItem(c.id); }); return; }
+  if(act==='stcat'){ w=xWin(wid); if(w){ w.st.cat=parts[1]; w.refresh(); } return; }
+});
+document.addEventListener('input',e=>{
+  const t=e.target, act=t.dataset.act;
+  if(act==='fmq'){ const w=xWin(+t.dataset.arg); if(w){ w.fm.q=t.value; fmRender(w); } }
+  else if(act==='ededit'){ const w=xWin(+t.dataset.arg); if(w){ if(w.ed.node){w.ed.node.content=t.value;} w.ed.dirty=true; w.body.querySelector('.ed-dot').hidden=false; } }
+  else if(act==='noteedit'){ const w=xWin(+t.dataset.arg); if(w){ const n=notesStore.find(x=>x.id===w.nt.sel); if(n){ n.t=w.body.querySelector('.nt-t').value; n.b=w.body.querySelector('.nt-b').value; n.ts=Date.now(); LS.set('vx.notes',notesStore); w.refresh(); } } }
+  else if(act==='wkq'){ const w=xWin(+t.dataset.arg); if(w){ w.wk.q=t.value; w.refresh(); } }
+  else if(act==='stq'){ const w=xWin(+t.dataset.arg); if(w){ w.st.q=t.value; w.refresh(); } }
+  else if(act==='phbat'){ const w=xWin(+t.dataset.arg); if(w){ const o=w.body.querySelector('.ph-out'); if(o)o.textContent=t.value+'%'; } }
+  else if(t.classList.contains('set-q')){ const wrap=t.closest('.win-body'); const q=t.value.toLowerCase(); if(wrap)wrap.querySelectorAll('.setsec').forEach(sec=>{ if(sec.contains(t))return; sec.hidden=!!q&&!sec.textContent.toLowerCase().includes(q); }); }
+});
+document.addEventListener('change',e=>{
+  const t=e.target, act=t.dataset.act;
+  if(act==='aur'){ aurOn=t.checked; refreshStores(); }
+  else if(act==='bkfolder'){ const n=t.dataset.arg; if(t.checked){ if(!bkState.folders.includes(n))bkState.folders.push(n); } else bkState.folders=bkState.folders.filter(x=>x!==n); LS.set('vx.backup',bkState); }
+  else if(act==='bksched'){ bkState.sched=t.value; LS.set('vx.backup',bkState); }
+});
+document.addEventListener('keydown',e=>{
+  if($('#desktop').hidden)return;
+  const tag=(e.target.tagName||'').toLowerCase();
+  const inField=tag==='input'||tag==='textarea'||tag==='select'||e.target.isContentEditable;
+  const sup=e.metaKey||(e.ctrlKey&&e.altKey);
+  if(e.key==='Escape'){
+    const c=$('#xctx'); if(c&&!c.hidden){ c.hidden=true; return; }
+    const q=$('#ql'); if(q&&!q.hidden){ xHideQL(); return; }
+    const m=$('#xmodal'); if(m&&!m.hidden){ xCloseModal(); return; }
+    return;
+  }
+  if(sup&&e.shiftKey&&e.key.toLowerCase()==='h'){ e.preventDefault(); openApp('wiki'); return; }
+  if(e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.toLowerCase()==='f'){ e.preventDefault(); openApp('settings'); setTimeout(()=>{ const w=wins.find(x=>x.app==='settings'&&x.ws===S.ws); if(w){ const i=w.body.querySelector('.set-q'); if(i)i.focus(); } },80); return; }
+  const fw=getWin(focusId);
+  if(fw&&fw.app==='files'&&!inField&&$('#panel').hidden){
+    const q=$('#ql'),m=$('#xmodal');
+    if((q&&!q.hidden)||(m&&!m.hidden))return;
+    const vis=fw.fm.visible||[]; const idx=vis.indexOf(fw.fm.sel);
+    if(e.key===' '){ e.preventDefault(); if(fw.fm.sel)xQL(vfind(fw.fm.sel)); return; }
+    if(e.key==='Enter'){ e.preventDefault(); if(fw.fm.sel)fmOpen(fw,vfind(fw.fm.sel)); return; }
+    if(e.key==='Delete'){ e.preventDefault(); if(fw.fm.sel){ const n=vfind(fw.fm.sel); xModal('Delete '+n.name,'<p style="font-size:13px;color:var(--subtext)">Remove it from the virtual file system?</p>','Delete',()=>{ vdel(n.uid); refreshFiles(); toast(n.name+' deleted','','x'); }); } return; }
+    if(['ArrowDown','ArrowRight','ArrowUp','ArrowLeft'].includes(e.key)&&vis.length){
+      e.preventDefault();
+      const d=(e.key==='ArrowDown'||e.key==='ArrowRight')?1:-1;
+      fw.fm.sel=vis[(idx+d+vis.length)%vis.length]; fmRender(fw); return;
+    }
+  }
+});
+
+/* ---------- INIT 2 ---------- */
+(function init2(){
+  APPS.files={name:'Files',ic:'files',build:buildFiles};
+  APPS.firefox={name:'Firefox',ic:'globe',build:buildBrowser};
+  APPS.store.build=buildStore2;
+  APPS.editor={name:'Text Editor',ic:'terminal',build:buildEditor};
+  APPS.wiki={name:'Arch Wiki',ic:'book',build:buildWiki};
+  APPS.backup={name:'Backup',ic:'files',build:buildBackup};
+  APPS.phone={name:'Phone',ic:'phone',build:buildPhone};
+  (LS.get('vx.apps')||[]).forEach(id=>{ const c=CATALOG.concat(AUR).find(x=>x.id===id); if(c)regApp(id); });
+  const th=LS.get('vx.theme');
+  if(th){ if(typeof th.light==='boolean'&&th.light!==S.light)xSetLight(th.light); if(th.accent&&th.accent!==S.accent)xSetAccent(th.accent); }
+  rebuildGrid(); syncLauncher();
+  const kc=$('#keys .keys');
+  if(kc){
+    kc.querySelectorAll('.krow').forEach(r=>{ if(r.textContent.includes('Offline Arch Wiki'))r.lastElementChild.textContent='Offline Arch Wiki (preview edition)'; });
+    kc.insertAdjacentHTML('beforeend','<div class="krow"><span><kbd>SPACE</kbd></span><span>Quick Look in Files</span></div><div class="krow"><span><kbd>CTRL</kbd>+<kbd>F</kbd></span><span>Search Settings</span></div>');
+  }
+})();
+</script>
+<script>
+/* ============================================================
+   VYNTARIS PREVIEW — HOTFIX #1
+   Fixes: Files and Firefox not opening.
+   Why:   openApp() runs the builder before w.body exists; the
+          Files/Firefox render functions read w.body and throw.
+   Fix:   give every builder w.body up front (harmless for the
+          apps that already worked). Paste LAST, before </body>.
+   Safe to paste once; re-pasting does nothing.
+   ============================================================ */
+(function(){
+  if(window.__vxOpenFix) return;
+  window.__vxOpenFix=true;
+
+  function safeBuild(orig){
+    return function(body,w){ w.body=body; return orig(body,w); };
+  }
+  function wrap(id){
+    var d=APPS[id];
+    if(d && typeof d.build==='function' && !d.build.__vxSafe){
+      var b=safeBuild(d.build); b.__vxSafe=true; d.build=b;
+    }
+  }
+
+  /* Wrap every app that exists right now (Files, Firefox, Store, mini-apps…) */
+  Object.keys(APPS).forEach(wrap);
+
+  /* Also wrap apps installed later from the Store, so they stay safe too */
+  if(typeof regApp==='function' && !regApp.__vxSafe){
+    var _reg=regApp;
+    regApp=function(id){ _reg(id); wrap(id); };
+    regApp.__vxSafe=true;
+  }
+})();
+</script>
+</body>
+</html>
